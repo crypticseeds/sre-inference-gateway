@@ -33,7 +33,7 @@ class MockOpenAIProvider(BaseProvider):
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": f"Mock OpenAI response for: {request.messages[-1].get('content', '')}"
+                        "content": f"Mock OpenAI response for: {request.messages[-1].get('content', '') if request.messages else ''}"
                     },
                     "finish_reason": "stop"
                 }
@@ -75,7 +75,7 @@ class MockVLLMProvider(BaseProvider):
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": f"Mock vLLM response for: {request.messages[-1].get('content', '')}"
+                        "content": f"Mock vLLM response for: {request.messages[-1].get('content', '') if request.messages else ''}"
                     },
                     "finish_reason": "stop"
                 }

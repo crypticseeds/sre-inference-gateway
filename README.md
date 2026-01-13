@@ -151,7 +151,7 @@ tests/                # Test suite
 - **FastAPI** for HTTP API framework
 - **OpenTelemetry** for distributed tracing
 - **Prometheus** for metrics collection
-- **Redis** for state management (future)
+- **Redis** for quotas, rate limiting, and token usage tracking
 - **Docker** for containerization
 
 ## License
@@ -261,7 +261,7 @@ These are discussed as future considerations in `DESIGN.md`.
 - `DESIGN.md` – architectural decisions and trade-offs
 - `ARCHITECTURE.md` – request and deployment diagrams
 - `INCIDENT.md` – simulated outage and postmortem
-- 
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.

@@ -25,7 +25,7 @@ def main():
     print(f"Command: {' '.join(cmd)}")
     print("Server will be available at: http://localhost:8000")
     print("API docs available at: http://localhost:8000/docs")
-    print("Metrics available at: http://localhost:9090/metrics")
+    print("Metrics available at: http://localhost:8000/metrics")
     print("\nPress Ctrl+C to stop the server")
     
     try:

@@ -261,4 +261,4 @@ Enforcement Rule
 If a proposed change violates this document:
 
 - The change MUST be rejected
-- OR the document MUST be updated first, ask the user for permision
+- OR the document MUST be updated first, ask the user for permission

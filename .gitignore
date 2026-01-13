@@ -62,9 +62,6 @@ profile.cov
 *.log
 logs/
 
-# Docker
-.dockerignore
-
 # Secrets (should use Doppler instead)
 .env.local
 .env.production
