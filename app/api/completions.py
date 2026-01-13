@@ -78,7 +78,7 @@ async def create_chat_completion(
         from app.providers.base import ChatCompletionRequest as BaseRequest
         base_request = BaseRequest(
             model=chat_request.model,
-            messages=[msg.dict() for msg in chat_request.messages],
+            messages=[msg.model_dump() for msg in chat_request.messages],
             temperature=chat_request.temperature,
             max_tokens=chat_request.max_tokens,
             stream=chat_request.stream,
