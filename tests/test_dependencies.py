@@ -161,8 +161,10 @@ class TestSetupRequestContext:
     @patch('app.api.dependencies.trace.get_current_span')
     def test_with_no_span(self, mock_get_span):
         """Test context setup when no span is available."""
-        # Mock no span
-        mock_get_span.return_value = None
+        # Mock non-recording span (similar to INVALID_SPAN)
+        mock_span = Mock(spec=Span)
+        mock_span.is_recording.return_value = False
+        mock_get_span.return_value = mock_span
         
         # Mock request
         mock_request = Mock(spec=Request)

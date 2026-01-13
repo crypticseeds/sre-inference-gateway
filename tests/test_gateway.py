@@ -69,11 +69,11 @@ async def test_chat_completion() -> None:
         print(f"Response ID: {data['id']}")
         print(f"Model: {data['model']}")
         print(f"Content: {data['choices'][0]['message']['content']}")
-        # Safely print usage if it exists
-        if 'usage' in data:
-            print(f"Usage: {data['usage']}")
-        else:
-            print("Usage: Not provided in response")
+        
+        # Assert usage exists and validate its structure
+        assert "usage" in data, "Response should contain 'usage' key"
+        assert isinstance(data["usage"], dict), "Usage should be a dict"
+        print(f"Usage: {data['usage']}")
 
 
 async def test_provider_routing() -> None:
