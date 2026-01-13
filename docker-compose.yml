@@ -11,7 +11,7 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/v1/health')"]
+      test: ["CMD", "python", "-c", "import requests; import sys; response = requests.get('http://localhost:8000/v1/health'); response.raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -19,11 +19,13 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme123}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-devpassword123}
+    environment:
+      - REDISCLI_AUTH=${REDIS_PASSWORD:-devpassword123}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme123}", "ping"]
+      test: ["CMD", "sh", "-c", "redis-cli ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -48,7 +50,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
     volumes:
       - grafana_data:/var/lib/grafana
 

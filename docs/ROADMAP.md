@@ -76,7 +76,7 @@ Original Go-based issues have been refactored to align with the Python stack (Fa
 - [ ] Expose standard RED metrics (Rate, Errors, Duration) at `/metrics`.
 - [ ] Ensure request IDs are propagated in logs and traces.
 
-### DEV-XX: LocalHF Adapter (vLLM)
+### DEV-XX: vLLM Adapter (vLLM)
 **Status**: Todo
 **Goal**: Support local inference using vLLM.
 **Acceptance Criteria**:

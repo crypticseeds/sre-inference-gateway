@@ -38,7 +38,7 @@ EXPOSE 8000 9090
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/v1/health')"
+    CMD /app/.venv/bin/python -c "import httpx; httpx.get('http://localhost:8000/v1/health').raise_for_status()"
 
 # Run application
 CMD ["/app/.venv/bin/python", "-m", "app.main"]

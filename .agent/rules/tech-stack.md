@@ -155,6 +155,7 @@ Tracing
 
   - Used for Python virtual environments and dependency resolution
   - Lockfiles must be committed
+  - Ruff for formatting and linting
 
 - No pipenv
 

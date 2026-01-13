@@ -10,6 +10,7 @@ When beginning work on a Linear issue, follow this structured workflow to ensure
 
 ### Branch Management
 - **Always** create a new stacked branch using Graphite: `gt create <descriptive-branch-name>`
+- Use `gt create` to create a new stacked branch, then use `git commit` for commits on that branch, and finally use `gt submit` to push the stack
 - Branch names should be descriptive and relate to the issue (e.g., `fix-auth-validation`, `add-metrics-endpoint`)
 - Use Graphite's stacking workflow for incremental changes
 
@@ -28,7 +29,7 @@ When beginning work on a Linear issue, follow this structured workflow to ensure
 - When adding new functionality, create corresponding tests
 - Aggregate tests in a centralized test script
 - Ensure tests are included in GitHub Actions CI workflow
-- **Do not commit changes** until user verification and testing is complete
+- **Do not commit changes until user verification and testing is complete** - use `gt create` for change submission only after verification
 
 ### Completion Process
 - **Do not** automatically mark the issue as "Done"

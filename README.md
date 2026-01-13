@@ -138,6 +138,9 @@ The gateway uses Pydantic Settings for configuration:
 ```
 app/
 ├── api/              # FastAPI routes and dependencies
+│   ├── completions.py    # Chat completion endpoint
+│   ├── dependencies.py   # FastAPI dependency functions
+│   └── routes.py         # API route definitions
 ├── config/           # Configuration management
 ├── observability/    # Metrics and tracing
 ├── providers/        # Provider abstractions
@@ -145,7 +148,20 @@ app/
 tests/                # Test suite
 ```
 
-### Tech Stack
+### Key API Dependencies
+
+The `app.api.dependencies` module provides FastAPI dependency functions:
+
+- `get_request_id()`: Extracts or generates unique request IDs for tracing
+- `get_provider_priority()`: Handles provider routing via `X-Provider-Priority` header
+- `get_router()`: Creates configured RequestRouter instances
+- `setup_request_context()`: Sets up OpenTelemetry tracing context
+
+See `docs/API_DEPENDENCIES.md` for detailed usage examples and integration patterns.
+
+#Reliable and observable multi-provider LLM inference, built with SRE and platform engineering principles.
+
+## Tech Stack
 
 - **Python 3.13+** with uv for dependency management
 - **FastAPI** for HTTP API framework
@@ -153,10 +169,6 @@ tests/                # Test suite
 - **Prometheus** for metrics collection
 - **Redis** for quotas, rate limiting, and token usage tracking
 - **Docker** for containerization
-
-## License
-
-See [LICENSE](LICENSE) file.
 
 Reliable and observable multi-provider LLM inference, built with SRE and platform engineering principles.
 
@@ -246,7 +258,7 @@ To keep scope realistic, this project intentionally does **not** implement:
 - Production-grade multi-tenancy
 - Persistent caching or data storage
 
-These are discussed as future considerations in `DESIGN.md`.
+These are discussed as future considerations in `docs/DESIGN.md`.
 
 ## Getting Started (Demo)
 
@@ -258,9 +270,12 @@ These are discussed as future considerations in `DESIGN.md`.
 
 ## Documentation
 
-- `DESIGN.md` – architectural decisions and trade-offs
-- `ARCHITECTURE.md` – request and deployment diagrams
-- `INCIDENT.md` – simulated outage and postmortem
+- `docs/DESIGN.md` – architectural decisions and trade-offs
+- `docs/ARCHITECTURE.md` – request and deployment diagrams
+- `docs/INCIDENT.md` – simulated outage and postmortem
+- `docs/API_DEPENDENCIES.md` – FastAPI dependencies and request handling
+- `docs/MODELS.md` – Pydantic models and data structures
+- `docs/ENVIRONMENT.md` – environment configuration guide
 
 ## License
 

@@ -19,7 +19,7 @@ class RequestRouter:
         Args:
             provider_weights: Dictionary mapping provider names to weights
         """
-        self.provider_weights = provider_weights
+        self.provider_weights = provider_weights.copy()
         self._validate_weights()
     
     def _validate_weights(self) -> None:
@@ -77,8 +77,15 @@ class RequestRouter:
             logger.error("No available providers for routing")
             return None
         
-        # Use random.choices for weighted selection
-        selected_provider = random.choices(available_providers, weights=weights)[0]
+        # Handle case where all weights sum to zero
+        total_weight = sum(weights)
+        if total_weight == 0:
+            logger.warning("All provider weights are zero, using uniform selection")
+            selected_provider = random.choice(available_providers)
+        else:
+            # Use random.choices for weighted selection
+            selected_provider = random.choices(available_providers, weights=weights)[0]
+        
         logger.info(f"Selected provider via weighted routing: {selected_provider.name}")
         
         return selected_provider

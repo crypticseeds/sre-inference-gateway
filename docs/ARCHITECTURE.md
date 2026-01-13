@@ -16,11 +16,16 @@
    - Enforces circuit breakers
    - Applies backpressure if saturated
    - Injects chaos if enabled
-   - Applies minimal guardrail policy
+   - Applies basic payload validation and schema validation
 5. Provider Adapter:
    - Translates request to provider API
-6. Response returned to client
-7. Metrics, traces, and logs emitted
+6. Provider Response Processing:
+   - Output validation guardrails applied here (see Full-Cycle diagram)
+   - Maximum response length enforcement
+   - Banned-word filtering
+   - Response truncation if needed
+7. Response returned to client
+8. Metrics, traces, and logs emitted
 
 ## Guardrail / Policy Hook
 A minimal operational safety layer:
@@ -81,7 +86,7 @@ This is the **correct, intentional order** for your gateway.
 │    - Retries / timeouts            │
 │    - Circuit breaking              │
 │    - Chaos injection               │
-│    - Guardrails                    │
+│    - Input guardrails only         │
 └───────────────┬────────────────────┘
 			    ↓
 ┌────────────────────────────────────┐
@@ -90,7 +95,9 @@ This is the **correct, intentional order** for your gateway.
 └───────────────┬────────────────────┘
 			    ↓
 ┌────────────────────────────────────┐
-│ 7. Response Accounting             │
+│ 7. Response Processing             │
+│    - Output guardrails applied     │
+│    - Response validation           │
 │    - Token usage increment         │
 │    - Metrics emit                  │
 └────────────────────────────────────┘

@@ -11,13 +11,13 @@ Models:
 
 Usage:
     from app.models import ChatCompletionRequest, ChatCompletionResponse
-    
+
     # Create a chat completion request
     request = ChatCompletionRequest(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello!"}]
     )
-    
+
     # Create a response
     response = ChatCompletionResponse(
         id="chatcmpl-123",
@@ -42,6 +42,6 @@ from app.providers.base import (
 # Export all models for external use
 __all__ = [
     "ChatCompletionRequest",
-    "ChatCompletionResponse", 
+    "ChatCompletionResponse",
     "ProviderHealth",
 ]
