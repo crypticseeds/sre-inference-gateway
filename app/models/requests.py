@@ -25,7 +25,8 @@ class ChatMessage(BaseModel):
         Raises:
             ValueError: If role is invalid
         """
-        allowed_roles = {"system", "user", "assistant", "function"}
+        # TODO: "function" is deprecated in favor of "tool" for future cleanup
+        allowed_roles = {"system", "user", "assistant", "function", "tool"}
         if v not in allowed_roles:
             raise ValueError(f"Role must be one of {allowed_roles}")
         return v

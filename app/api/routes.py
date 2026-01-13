@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from app.api.completions import router as completions_router
@@ -40,8 +40,6 @@ async def readiness_check(
     Raises:
         HTTPException: If no providers are available (503 Service Unavailable)
     """
-    from fastapi import HTTPException, status
-    
     available_providers = request_router.get_available_providers()
     
     response_data = {
