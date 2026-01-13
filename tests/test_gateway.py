@@ -14,11 +14,18 @@ async def test_health_endpoints() -> None:
         
         # Health check
         response = await client.get("http://localhost:8000/v1/health")
-        print(f"Health: {response.status_code} - {response.json()}")
+        assert response.status_code == 200, f"Health check failed: {response.text}"
+        health_data = response.json()
+        assert isinstance(health_data, dict), "Health response should be a dict"
+        assert "status" in health_data, "Health response should contain 'status' key"
+        print(f"Health: {response.status_code} - {health_data}")
         
         # Readiness check
         response = await client.get("http://localhost:8000/v1/ready")
-        print(f"Ready: {response.status_code} - {response.json()}")
+        assert response.status_code == 200, f"Readiness check failed: {response.text}"
+        ready_data = response.json()
+        assert isinstance(ready_data, dict), "Ready response should be a dict"
+        print(f"Ready: {response.status_code} - {ready_data}")
 
 
 async def test_chat_completion() -> None:
@@ -46,14 +53,23 @@ async def test_chat_completion() -> None:
         print(f"Chat completion: {response.status_code}")
         print(f"Duration: {duration:.2f}s")
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"Response ID: {data['id']}")
-            print(f"Model: {data['model']}")
-            print(f"Content: {data['choices'][0]['message']['content']}")
-            print(f"Usage: {data['usage']}")
-        else:
-            print(f"Error: {response.text}")
+        assert response.status_code == 200, f"Chat completion failed: {response.text}"
+        
+        data = response.json()
+        assert isinstance(data, dict), "Response should be a dict"
+        assert "id" in data, "Response should contain 'id' key"
+        assert "model" in data, "Response should contain 'model' key"
+        assert "choices" in data, "Response should contain 'choices' key"
+        assert isinstance(data["choices"], list), "Choices should be a list"
+        assert len(data["choices"]) > 0, "Choices should not be empty"
+        assert isinstance(data["choices"][0], dict), "First choice should be a dict"
+        assert "message" in data["choices"][0], "Choice should contain 'message' key"
+        assert "content" in data["choices"][0]["message"], "Message should contain 'content' key"
+        
+        print(f"Response ID: {data['id']}")
+        print(f"Model: {data['model']}")
+        print(f"Content: {data['choices'][0]['message']['content']}")
+        print(f"Usage: {data['usage']}")
 
 
 async def test_provider_routing() -> None:
@@ -77,9 +93,12 @@ async def test_provider_routing() -> None:
             timeout=30.0
         )
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"OpenAI provider response: {data['choices'][0]['message']['content']}")
+        assert response.status_code == 200, f"OpenAI provider routing failed: {response.text}"
+        data = response.json()
+        assert "choices" in data and len(data["choices"]) > 0, "Response should contain choices"
+        assert "message" in data["choices"][0], "Choice should contain message"
+        assert "content" in data["choices"][0]["message"], "Message should contain content"
+        print(f"OpenAI provider response: {data['choices'][0]['message']['content']}")
         
         # Test with different provider
         headers = {"X-Provider-Priority": "mock_vllm"}
@@ -90,9 +109,12 @@ async def test_provider_routing() -> None:
             timeout=30.0
         )
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"vLLM provider response: {data['choices'][0]['message']['content']}")
+        assert response.status_code == 200, f"vLLM provider routing failed: {response.text}"
+        data = response.json()
+        assert "choices" in data and len(data["choices"]) > 0, "Response should contain choices"
+        assert "message" in data["choices"][0], "Choice should contain message"
+        assert "content" in data["choices"][0]["message"], "Message should contain content"
+        print(f"vLLM provider response: {data['choices'][0]['message']['content']}")
 
 
 async def test_request_id_propagation() -> None:
@@ -118,12 +140,14 @@ async def test_request_id_propagation() -> None:
             timeout=30.0
         )
         
-        if response.status_code == 200:
-            data = response.json()
-            # Assert that the request ID was propagated in the response header
-            assert response.headers.get('X-Request-ID') == custom_request_id, f"Request ID not propagated in header. Expected: {custom_request_id}, Got: {response.headers.get('X-Request-ID')}"
-            print(f"Custom request ID preserved: {custom_request_id}")
-            print(f"Response ID: {data['id']}")
+        assert response.status_code == 200, f"Request ID propagation test failed: {response.text}"
+        
+        # Assert that the request ID was propagated in the response header
+        assert response.headers.get('X-Request-ID') == custom_request_id, f"Request ID not propagated in header. Expected: {custom_request_id}, Got: {response.headers.get('X-Request-ID')}"
+        
+        data = response.json()
+        print(f"Custom request ID preserved: {custom_request_id}")
+        print(f"Response ID: {data['id']}")
 
 
 async def main() -> int:

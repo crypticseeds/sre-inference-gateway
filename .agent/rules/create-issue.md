@@ -33,7 +33,7 @@ When creating Linear issues for this project, follow these conventions:
 
 ## Required Output
 After creating an issue, provide:
-- Issue ID (e.g., SRE/DEV-123)
+- Issue ID (e.g., TEAM-123, such as SRE-123 or DEV-123)
 - Brief summary of what was created
 - Links to any related issues or sub-issues
 

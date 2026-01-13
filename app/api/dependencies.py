@@ -60,10 +60,10 @@ def setup_request_context(
     """
     # Add request ID to OpenTelemetry span
     span = trace.get_current_span()
-    if span:
+    if span.is_recording():
         span.set_attribute("request.id", request_id)
         span.set_attribute("request.method", request.method)
         span.set_attribute("request.url", str(request.url))
-    
+
     # Store request ID in request state for access in handlers
     request.state.request_id = request_id

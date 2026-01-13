@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
-from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from app.api.routes import router as api_router
@@ -22,8 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     logger.info(f"Starting SRE Inference Gateway v{settings.version}")
     
-    # Setup observability
-    setup_tracing()
+    # Setup metrics only (tracing is already setup in create_app)
     setup_metrics()
     
     yield
@@ -35,6 +33,9 @@ def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
     settings = get_settings()
     
+    # Setup tracing before instrumentation
+    setup_tracing()
+    
     app = FastAPI(
         title="SRE Inference Gateway",
         description="OpenAI-compatible API gateway with provider abstraction",
@@ -45,7 +46,7 @@ def create_app() -> FastAPI:
     # Include API routes
     app.include_router(api_router, prefix="/v1")
     
-    # Setup OpenTelemetry instrumentation
+    # Setup OpenTelemetry instrumentation after tracing is configured
     FastAPIInstrumentor.instrument_app(app)
     
     return app

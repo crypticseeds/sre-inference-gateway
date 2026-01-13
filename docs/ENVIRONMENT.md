@@ -28,8 +28,10 @@ HOST=0.0.0.0                  # Host to bind to (default: 0.0.0.0)
 PORT=8000                     # Port to bind to (default: 8000)
 
 # Metrics Configuration
-METRICS_PORT=9090             # Prometheus metrics port (default: 9090)
-                              # Note: Metrics are served via /v1/metrics on main port
+METRICS_PORT=9090             # Port for separate metrics server when ENABLE_METRICS_SERVER=true (default: 9090)
+ENABLE_METRICS_SERVER=false  # Enable separate metrics server (default: false)
+                              # When false: metrics served via /v1/metrics on main PORT
+                              # When true: metrics served on separate METRICS_PORT
 ```
 
 ### Request Processing

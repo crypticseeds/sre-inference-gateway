@@ -21,7 +21,7 @@ The project is intentionally scoped as a **portfolio-quality system**, not a pro
 
 ## Non-Goals (Explicit)
 - User sign-up / authentication flows
-- OAuth / JWT / SSO - pre generated api-keys for testing and simulation
+- OAuth / JWT / SSO - pre-generated API keys for testing and simulation
 - Billing, payments, or invoicing
 - Model training or fine-tuning
 - Full OpenAI API compatibility
