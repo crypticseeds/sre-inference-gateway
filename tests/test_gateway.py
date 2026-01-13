@@ -69,7 +69,11 @@ async def test_chat_completion() -> None:
         print(f"Response ID: {data['id']}")
         print(f"Model: {data['model']}")
         print(f"Content: {data['choices'][0]['message']['content']}")
-        print(f"Usage: {data['usage']}")
+        # Safely print usage if it exists
+        if 'usage' in data:
+            print(f"Usage: {data['usage']}")
+        else:
+            print("Usage: Not provided in response")
 
 
 async def test_provider_routing() -> None:
@@ -146,6 +150,7 @@ async def test_request_id_propagation() -> None:
         assert response.headers.get('X-Request-ID') == custom_request_id, f"Request ID not propagated in header. Expected: {custom_request_id}, Got: {response.headers.get('X-Request-ID')}"
         
         data = response.json()
+        assert "id" in data, "Response should contain 'id' key"
         print(f"Custom request ID preserved: {custom_request_id}")
         print(f"Response ID: {data['id']}")
 

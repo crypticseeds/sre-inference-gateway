@@ -1,7 +1,7 @@
 """Prometheus metrics setup."""
 
 import logging
-from prometheus_client import Counter, Histogram, Info, start_http_server
+from prometheus_client import Counter, Histogram, Info
 
 from app.config.settings import get_settings
 

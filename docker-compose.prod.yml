@@ -8,7 +8,7 @@ services:
     environment:
       - DEBUG=false
       - LOG_LEVEL=WARN
-      - METRICS_PORT=9090
+      - METRICS_PORT=9091
     restart: unless-stopped
     deploy:
       resources:
@@ -21,6 +21,8 @@ services:
 
   redis:
     restart: unless-stopped
+    volumes:
+      - redis_data:/data
     deploy:
       resources:
         limits:
@@ -32,6 +34,8 @@ services:
 
   prometheus:
     restart: unless-stopped
+    volumes:
+      - prometheus_data:/prometheus
     deploy:
       resources:
         limits:
@@ -43,6 +47,8 @@ services:
 
   grafana:
     restart: unless-stopped
+    volumes:
+      - grafana_data:/var/lib/grafana
     deploy:
       resources:
         limits:
@@ -51,3 +57,11 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+
+volumes:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

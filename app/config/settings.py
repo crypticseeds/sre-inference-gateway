@@ -8,6 +8,32 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def parse_bool_env(value: str, default: bool = False) -> bool:
+    """Parse boolean environment variable.
+    
+    Args:
+        value: String value from environment
+        default: Default value if parsing fails
+        
+    Returns:
+        Boolean value
+    """
+    if value is None:
+        return default
+    
+    if isinstance(value, bool):
+        return value
+    
+    # Handle string values
+    value_lower = str(value).lower().strip()
+    if value_lower in ("true", "1", "yes", "on"):
+        return True
+    elif value_lower in ("false", "0", "no", "off", ""):
+        return False
+    
+    return default
+
+
 class Settings(BaseSettings):
     """Application settings."""
     

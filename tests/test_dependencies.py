@@ -75,16 +75,19 @@ class TestGetRouter:
     @patch('app.api.dependencies.get_settings')
     def test_router_with_different_weights(self, mock_get_settings):
         """Test router creation with different provider weights."""
-        # Mock settings with different weights
+        # Mock settings with non-normalized weights to test normalization
         mock_settings = Mock()
-        mock_settings.provider_weights = {"mock_openai": 0.8, "mock_vllm": 0.2}
+        mock_settings.provider_weights = {"mock_openai": 8, "mock_vllm": 2}
         mock_get_settings.return_value = mock_settings
         
         router = get_router()
         
         assert isinstance(router, RequestRouter)
-        # Weights should be normalized
+        # Weights should be normalized to sum to 1.0
         assert abs(sum(router.provider_weights.values()) - 1.0) < 0.001
+        # Check individual normalized ratios
+        assert abs(router.provider_weights["mock_openai"] - 0.8) < 0.001  # 8/(8+2)
+        assert abs(router.provider_weights["mock_vllm"] - 0.2) < 0.001    # 2/(8+2)
 
 
 class TestSetupRequestContext:

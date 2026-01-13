@@ -11,7 +11,7 @@ services:
     depends_on:
       - redis
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; import sys; response = requests.get('http://localhost:8000/v1/health'); response.raise_for_status()"]
+      test: ["CMD", "sh", "-c", "curl -fS --max-time 5 http://localhost:8000/v1/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -19,11 +19,12 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-devpassword123}
+    command: redis-server /etc/redis/redis.conf --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     environment:
-      - REDISCLI_AUTH=${REDIS_PASSWORD:-devpassword123}
+      - REDISCLI_AUTH=${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
+      - ./redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
       test: ["CMD", "sh", "-c", "redis-cli ping"]
       interval: 10s
