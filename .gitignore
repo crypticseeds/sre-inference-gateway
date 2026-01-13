@@ -1,32 +1,84 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 *.so
-*.dylib
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Test binary, built with `go test -c`
-*.test
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Code coverage profiles and other test artifacts
-*.out
+# IDE
+.vscode/
+.idea/
+.kiro
+.cursor
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+.nox/
+htmlcov/
 coverage.*
 *.coverprofile
 profile.cov
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Logs
+*.log
+logs/
 
-# Go workspace file
-go.work
-go.work.sum
+# Docker
+.dockerignore
 
-# env file
-.env
+# Secrets (should use Doppler instead)
+.env.local
+.env.production
+secrets/
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Temporary files
+tmp/
+temp/
+
+# Project specific
+TECH_STACK.md
+STEERING_SUMMARY.md
+Python/
+python.md
+
+# Local History for Visual Studio Code
+.history/

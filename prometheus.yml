@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'sre-inference-gateway'
+    static_configs:
+      - targets: ['gateway:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
