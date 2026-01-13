@@ -27,6 +27,11 @@ class RequestRouter:
         if not self.provider_weights:
             raise ValueError("Provider weights cannot be empty")
         
+        # Check for negative weights
+        negative_providers = [name for name, weight in self.provider_weights.items() if weight < 0]
+        if negative_providers:
+            raise ValueError(f"Provider weights cannot be negative: {negative_providers}")
+        
         total_weight = sum(self.provider_weights.values())
         if total_weight <= 0:
             raise ValueError("Total provider weights must be positive")

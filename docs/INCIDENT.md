@@ -64,7 +64,7 @@ The upstream OpenAI API experienced a transient outage, returning repeated 5xx r
 ## Action Items
 
 | Item | Owner | Priority |
-|--||-|
+|------|-------|----------|
 | Add warm-up hook for local provider | Platform | High |
 | Add latency SLO alerts | Platform | Medium |
 | Improve provider health scoring | Platform | Low |

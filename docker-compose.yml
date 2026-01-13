@@ -4,11 +4,10 @@ services:
   gateway:
     build: .
     ports:
-      - "8000:8000"  # API port
-      - "9090:9090"  # Metrics port
+      - "8000:8000"  # API port (includes /metrics endpoint)
     environment:
-      - DEBUG=true
-      - LOG_LEVEL=DEBUG
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       - redis
     healthcheck:
@@ -20,13 +19,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme123}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme123}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -51,7 +48,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - grafana_data:/var/lib/grafana
 

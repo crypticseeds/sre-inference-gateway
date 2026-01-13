@@ -3,6 +3,8 @@
 import logging
 from prometheus_client import Counter, Histogram, Info, start_http_server
 
+from app.config.settings import get_settings
+
 logger = logging.getLogger(__name__)
 
 # Metrics
@@ -32,15 +34,15 @@ SERVICE_INFO = Info(
 
 def setup_metrics() -> None:
     """Setup Prometheus metrics."""
+    settings = get_settings()
+    
     # Set service info
     SERVICE_INFO.info({
-        "version": "0.1.0",
+        "version": settings.version,
         "service": "sre-inference-gateway"
     })
     
-    # Start metrics server on port 9090
-    start_http_server(9090)
-    logger.info("Prometheus metrics server started on port 9090")
+    logger.info("Prometheus metrics initialized (served via FastAPI /metrics endpoint)")
 
 
 def record_request(

@@ -48,6 +48,12 @@ class Settings(BaseSettings):
         default=30.0,
         description="Health check interval in seconds"
     )
+    
+    # Metrics
+    metrics_port: int = Field(
+        default=9090,
+        description="Prometheus metrics server port"
+    )
 
 
 @lru_cache()
@@ -60,8 +66,11 @@ def setup_logging() -> None:
     """Setup application logging."""
     settings = get_settings()
     
+    # Safely get log level with fallback to INFO
+    log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    
     logging.basicConfig(
-        level=getattr(logging, settings.log_level.upper()),
+        level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.StreamHandler()],
     )

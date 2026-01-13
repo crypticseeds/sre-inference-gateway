@@ -3,8 +3,9 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from opentelemetry import trace
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from app.api.dependencies import (
     get_provider_priority,
@@ -111,11 +112,37 @@ async def readiness_check(
         
     Returns:
         Readiness status with available providers
+        
+    Raises:
+        HTTPException: If no providers are available (503 Service Unavailable)
     """
     available_providers = request_router.get_available_providers()
     
-    return {
+    response_data = {
         "status": "ready" if available_providers else "not_ready",
         "available_providers": available_providers,
         "provider_count": len(available_providers),
     }
+    
+    # Return 503 if no providers are available
+    if not available_providers:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=response_data
+        )
+    
+    return response_data
+
+
+@router.get("/metrics")
+async def metrics() -> Response:
+    """Prometheus metrics endpoint.
+    
+    Returns:
+        Prometheus metrics in text format
+    """
+    metrics_data = generate_latest()
+    return Response(
+        content=metrics_data,
+        media_type=CONTENT_TYPE_LATEST
+    )

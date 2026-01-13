@@ -14,7 +14,7 @@ The project is intentionally scoped as a **portfolio-quality system**, not a pro
 
 ## Goals
 - Expose a **single OpenAI-style API** for clients (`/v1/chat/completions`)
-- Route requests to multiple inference backends /Support **multiple inference providers** behind that API
+- Route requests to multiple inference backends and support **multiple inference providers** behind that API
 - Enforce **per-consumer quotas and rate limits**
 - Apply **SRE reliability patterns** at the gateway layer
 - Provide first-class observability and failure simulation
@@ -66,12 +66,12 @@ All resilience logic lives here.
 Responsibilities:
 - Provider selection
 - Weighted routing
-- Deterministic pinning - simulate model preference selection & Crucial for incident reproduction
+- Deterministic pinning — simulate model preference selection; crucial for incident reproduction
 - Retries and timeouts
 - Circuit breaking
 - Backpressure and load shedding
 - Chaos injection (fault simulation)
-- Minimal operational guardrails - AI Safty
+- Minimal operational guardrails - AI Safety
 
 Providers are intentionally **thin and dumb**.
 

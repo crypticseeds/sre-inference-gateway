@@ -2,9 +2,7 @@
 """Simple test script for the SRE Inference Gateway."""
 
 import asyncio
-import json
 import time
-from typing import Dict, Any
 
 import httpx
 
@@ -122,11 +120,13 @@ async def test_request_id_propagation() -> None:
         
         if response.status_code == 200:
             data = response.json()
+            # Assert that the request ID was propagated in the response header
+            assert response.headers.get('X-Request-ID') == custom_request_id, f"Request ID not propagated in header. Expected: {custom_request_id}, Got: {response.headers.get('X-Request-ID')}"
             print(f"Custom request ID preserved: {custom_request_id}")
             print(f"Response ID: {data['id']}")
 
 
-async def main() -> None:
+async def main() -> int:
     """Run all tests."""
     print("SRE Inference Gateway Test Suite")
     print("=" * 40)
