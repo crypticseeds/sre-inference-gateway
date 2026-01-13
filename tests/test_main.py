@@ -15,17 +15,16 @@ def client():
 
 def test_health_endpoint(client):
     """Test health endpoint."""
-    response = client.get("/v1/health")
+    response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "healthy",
-        "service": "sre-inference-gateway"
-    }
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["service"] == "sre-inference-gateway"
 
 
 def test_readiness_endpoint(client):
     """Test readiness endpoint."""
-    response = client.get("/v1/ready")
+    response = client.get("/ready")
     assert response.status_code == 200
     data = response.json()
     assert "status" in data

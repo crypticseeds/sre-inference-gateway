@@ -34,15 +34,18 @@ SERVICE_INFO = Info(
 
 def setup_metrics() -> None:
     """Setup Prometheus metrics."""
-    settings = get_settings()
-    
-    # Set service info
-    SERVICE_INFO.info({
-        "version": settings.version,
-        "service": "sre-inference-gateway"
-    })
-    
-    logger.info("Prometheus metrics initialized (served via FastAPI /metrics endpoint)")
+    try:
+        settings = get_settings()
+        
+        # Set service info
+        SERVICE_INFO.info({
+            "version": settings.version,
+            "service": "sre-inference-gateway"
+        })
+        
+        logger.info("Prometheus metrics initialized (served via FastAPI /metrics endpoint)")
+    except Exception as e:
+        logger.warning(f"Could not fully initialize metrics: {e}")
 
 
 def record_request(

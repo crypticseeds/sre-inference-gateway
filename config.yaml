@@ -1,0 +1,44 @@
+# SRE Inference Gateway Configuration
+# This file contains the main configuration for the gateway service
+
+version: "0.1.0"
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+
+# Provider configurations
+providers:
+  - name: "mock_openai"
+    weight: 0.5
+    enabled: true
+    health_check_url: null  # No health check URL for mock provider
+    timeout: 30.0
+  
+  - name: "mock_vllm"
+    weight: 0.5
+    enabled: true
+    health_check_url: null  # No health check URL for mock provider
+    timeout: 30.0
+
+# Health check configuration
+health:
+  check_interval: 30.0  # Health check interval in seconds
+  timeout: 5.0          # Health check timeout in seconds
+  retries: 3            # Number of retries for failed health checks
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 9090
+
+# Request processing limits
+max_request_size: 1048576  # 1MB in bytes
+request_timeout: 35.0      # Request timeout in seconds (slightly larger than provider timeout to avoid races)

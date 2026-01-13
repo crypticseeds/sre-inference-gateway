@@ -59,26 +59,38 @@ class TestGetProviderPriority:
 class TestGetRouter:
     """Test get_router dependency."""
     
-    @patch('app.api.dependencies.get_settings')
-    def test_router_creation(self, mock_get_settings):
+    @patch('app.api.dependencies.get_gateway_config')
+    def test_router_creation(self, mock_get_gateway_config):
         """Test router creation with settings."""
-        # Mock settings
-        mock_settings = Mock()
-        mock_settings.provider_weights = {"mock_openai": 0.5, "mock_vllm": 0.5}
-        mock_get_settings.return_value = mock_settings
+        from app.config.models import GatewayConfig, ProviderConfig
+        
+        # Mock gateway config
+        mock_config = GatewayConfig(
+            providers=[
+                ProviderConfig(name="mock_openai", weight=0.5),
+                ProviderConfig(name="mock_vllm", weight=0.5)
+            ]
+        )
+        mock_get_gateway_config.return_value = mock_config
         
         router = get_router()
         
         assert isinstance(router, RequestRouter)
         assert router.provider_weights == {"mock_openai": 0.5, "mock_vllm": 0.5}
     
-    @patch('app.api.dependencies.get_settings')
-    def test_router_with_different_weights(self, mock_get_settings):
+    @patch('app.api.dependencies.get_gateway_config')
+    def test_router_with_different_weights(self, mock_get_gateway_config):
         """Test router creation with different provider weights."""
-        # Mock settings with non-normalized weights to test normalization
-        mock_settings = Mock()
-        mock_settings.provider_weights = {"mock_openai": 8, "mock_vllm": 2}
-        mock_get_settings.return_value = mock_settings
+        from app.config.models import GatewayConfig, ProviderConfig
+        
+        # Mock gateway config with non-normalized weights to test normalization
+        mock_config = GatewayConfig(
+            providers=[
+                ProviderConfig(name="mock_openai", weight=8.0),
+                ProviderConfig(name="mock_vllm", weight=2.0)
+            ]
+        )
+        mock_get_gateway_config.return_value = mock_config
         
         router = get_router()
         
@@ -168,14 +180,17 @@ class TestSetupRequestContext:
 class TestDependencyIntegration:
     """Test dependencies working together."""
     
-    @patch('app.api.dependencies.get_settings')
+    @patch('app.api.dependencies.get_gateway_config')
     @patch('app.api.dependencies.trace.get_current_span')
-    def test_full_dependency_chain(self, mock_get_span, mock_get_settings):
+    def test_full_dependency_chain(self, mock_get_span, mock_get_gateway_config):
         """Test all dependencies working together."""
+        from app.config.models import GatewayConfig, ProviderConfig
+        
         # Setup mocks
-        mock_settings = Mock()
-        mock_settings.provider_weights = {"mock_openai": 1.0}
-        mock_get_settings.return_value = mock_settings
+        mock_config = GatewayConfig(
+            providers=[ProviderConfig(name="mock_openai", weight=1.0)]
+        )
+        mock_get_gateway_config.return_value = mock_config
         
         mock_span = Mock(spec=Span)
         mock_span.is_recording.return_value = True
