@@ -8,7 +8,8 @@ from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from app.api.routes import router as api_router
-from app.config.settings import get_settings
+from app.api.health import router as health_router
+from app.config.settings import get_settings, start_config_watching, stop_config_watching
 from app.observability.metrics import setup_metrics
 from app.observability.tracing import setup_tracing
 
@@ -24,7 +25,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Setup metrics only (tracing is already setup in create_app)
     setup_metrics()
     
+    # Start configuration file watching for hot-reload (only if event loop is running)
+    try:
+        start_config_watching()
+        logger.info("Started configuration file watching")
+    except Exception as e:
+        logger.warning(f"Could not start config watching: {e}")
+    
     yield
+    
+    # Stop configuration file watching
+    try:
+        stop_config_watching()
+        logger.info("Stopped configuration file watching")
+    except Exception as e:
+        logger.warning(f"Error stopping config watching: {e}")
     
     logger.info("Shutting down SRE Inference Gateway")
 
@@ -45,6 +60,9 @@ def create_app() -> FastAPI:
     
     # Include API routes
     app.include_router(api_router, prefix="/v1")
+    
+    # Include health check routes (no prefix for standard health endpoints)
+    app.include_router(health_router)
     
     # Setup OpenTelemetry instrumentation after tracing is configured
     FastAPIInstrumentor.instrument_app(app)

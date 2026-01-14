@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChatMessage(BaseModel):
@@ -12,7 +12,8 @@ class ChatMessage(BaseModel):
     content: str = Field(..., description="Content of the message")
     name: Optional[str] = Field(None, description="Name of the message sender")
     
-    @validator("role")
+    @field_validator("role")
+    @classmethod
     def validate_role(cls, v: str) -> str:
         """Validate message role.
         
@@ -69,7 +70,8 @@ class ChatCompletionRequest(BaseModel):
     stream: bool = Field(False, description="Whether to stream responses")
     user: Optional[str] = Field(None, description="User identifier")
     
-    @validator("messages")
+    @field_validator("messages")
+    @classmethod
     def validate_messages_not_empty(cls, v: List[ChatMessage]) -> List[ChatMessage]:
         """Validate messages list is not empty.
         

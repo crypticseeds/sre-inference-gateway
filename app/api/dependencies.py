@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import Depends, Header, Request
 from opentelemetry import trace
 
-from app.config.settings import get_settings
+from app.config.settings import get_settings, get_gateway_config
 from app.router.router import RequestRouter
 
 
@@ -44,8 +44,9 @@ def get_router() -> RequestRouter:
     Returns:
         RequestRouter instance
     """
-    settings = get_settings()
-    return RequestRouter(settings.provider_weights)
+    gateway_config = get_gateway_config()
+    provider_weights = gateway_config.get_provider_weights()
+    return RequestRouter(provider_weights)
 
 
 def setup_request_context(
