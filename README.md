@@ -130,7 +130,12 @@ The gateway uses Pydantic Settings for configuration:
 ## Health Checks
 
 - **Health**: `GET /v1/health` - Basic service health
-- **Readiness**: `GET /v1/ready` - Service readiness with provider status
+- **Detailed Health**: `GET /v1/health/detailed` - Comprehensive health with provider status
+- **Readiness**: `GET /v1/ready` - Service readiness with provider availability
+- **Provider Health**: `GET /v1/health/providers` - All provider health status
+- **Single Provider**: `GET /v1/health/providers/{name}` - Specific provider health
+
+See `docs/HEALTH_API.md` for detailed health check API documentation.
 
 ## Observability
 
