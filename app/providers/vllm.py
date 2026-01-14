@@ -1,10 +1,17 @@
-"""vLLM provider implementation."""
+"""vLLM adapter implementation.
 
+This module provides an adapter for vLLM inference services that expose an
+OpenAI-compatible API. The adapter translates internal BaseProvider interface
+calls to vLLM API requests, handling retries, error handling, and health monitoring.
+"""
+
+import asyncio
+import logging
 import time
 from typing import Any, Dict
 
 import httpx
-from opentelemetry import trace
+from fastapi import HTTPException
 
 from app.providers.base import (
     BaseProvider,
@@ -13,99 +20,192 @@ from app.providers.base import (
     ProviderHealth,
 )
 
-tracer = trace.get_tracer(__name__)
+logger = logging.getLogger(__name__)
 
 
-class VLLMProvider(BaseProvider):
-    """vLLM provider for local inference.
-    
-    Connects to vLLM service running with OpenAI-compatible API.
-    """
-    
-    def __init__(self, name: str, config: Dict[str, Any]):
-        """Initialize vLLM provider.
-        
-        Args:
-            name: Provider name
-            config: Provider configuration with base_url and timeout
-        """
+class VLLMAdapter(BaseProvider):
+    """vLLM inference service adapter implementation."""
+
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def __init__(
+        self,
+        name: str,
+        config: Dict[str, Any],
+        base_url: str = "http://localhost:8000/v1",
+        timeout: float = 30.0,
+        max_retries: int = 3,
+    ):
+        """Initialize vLLM adapter."""
         super().__init__(name, config)
-        self.base_url = config.get("base_url", "http://localhost:8001")
-        self.timeout = config.get("timeout", 30.0)
-        self.api_key = config.get("api_key", "EMPTY")
-        self.base_url = self.base_url.rstrip("/")
-    
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self.max_retries = max_retries
+
+        # Create httpx client with timeout configuration
+        self.client = httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout),
+            headers={"Content-Type": "application/json"},
+        )
+
+    # pylint: disable=too-many-branches
     async def chat_completion(
-        self, 
+        self,
         request: ChatCompletionRequest,
-        request_id: str
+        request_id: str,
     ) -> ChatCompletionResponse:
-        """Process chat completion request via vLLM."""
-        with tracer.start_as_current_span(
-            "vllm_chat_completion",
-            attributes={
-                "provider": self.name,
-                "model": request.model,
-                "request_id": request_id,
-            }
-        ):
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                payload = {
-                    "model": request.model,
-                    "messages": request.messages,
-                    "temperature": request.temperature,
-                    "max_tokens": request.max_tokens,
-                    "top_p": request.top_p,
-                    "frequency_penalty": request.frequency_penalty,
-                    "presence_penalty": request.presence_penalty,
-                    "stream": request.stream,
-                }
-                payload = {k: v for k, v in payload.items() if v is not None}
-                if request.user:
-                    payload["user"] = request.user
-                
-                response = await client.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    }
+        """Process chat completion request via vLLM service."""
+        url = f"{self.base_url}/chat/completions"
+
+        # Convert request to dict for API call
+        payload = request.model_dump(exclude_none=True)
+
+        # Implement retry logic with exponential backoff
+        last_exception = None
+        for attempt in range(self.max_retries):
+            try:
+                logger.debug(
+                    "vLLM request attempt %d/%d: request_id=%s, model=%s",
+                    attempt + 1,
+                    self.max_retries,
+                    request_id,
+                    request.model,
                 )
-                response.raise_for_status()
-                data = response.json()
-                
-                return ChatCompletionResponse(
-                    id=data.get("id", request_id),
-                    object=data.get("object", "chat.completion"),
-                    created=data.get("created", int(time.time())),
-                    model=data.get("model", request.model),
-                    choices=data.get("choices", []),
-                    usage=data.get("usage", {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0
-                    })
+
+                response = await self.client.post(url, json=payload)
+
+                # Handle different HTTP status codes
+                if response.status_code == 200:
+                    data = response.json()
+                    return ChatCompletionResponse(**data)
+
+                if response.status_code == 400:
+                    # FIX: Guard against malformed JSON responses
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get("error", {}).get(
+                            "message", "Unknown error"
+                        )
+                    except (ValueError, Exception):
+                        # Fallback to text if JSON parsing fails
+                        error_msg = response.text or "Invalid request format"
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid request: {error_msg}",
+                    )
+
+                if response.status_code == 503:
+                    # Service unavailable - retry with exponential backoff
+                    logger.warning(
+                        "vLLM service unavailable, attempt %d/%d",
+                        attempt + 1,
+                        self.max_retries,
+                    )
+                    if attempt < self.max_retries - 1:
+                        # FIX: Add exponential backoff delay
+                        backoff_time = 2**attempt
+                        await asyncio.sleep(backoff_time)
+                        continue
+                    raise HTTPException(
+                        status_code=503,
+                        detail="vLLM service unavailable",
+                    )
+
+                if response.status_code >= 500:
+                    # Server error - retry with exponential backoff
+                    logger.warning(
+                        "vLLM server error %d, attempt %d/%d",
+                        response.status_code,
+                        attempt + 1,
+                        self.max_retries,
+                    )
+                    if attempt < self.max_retries - 1:
+                        # FIX: Add exponential backoff delay
+                        backoff_time = 2**attempt
+                        await asyncio.sleep(backoff_time)
+                        continue
+                    raise HTTPException(
+                        status_code=502,
+                        detail="vLLM service error",
+                    )
+
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"vLLM API error: {response.text}",
                 )
-    
+
+            except httpx.TimeoutException as e:
+                last_exception = e
+                logger.warning(
+                    "vLLM request timeout, attempt %d/%d",
+                    attempt + 1,
+                    self.max_retries,
+                )
+                if attempt < self.max_retries - 1:
+                    # FIX: Add exponential backoff delay
+                    backoff_time = 2**attempt
+                    await asyncio.sleep(backoff_time)
+                    continue
+                raise HTTPException(
+                    status_code=504,
+                    detail="vLLM service request timeout",
+                ) from e
+
+            except httpx.RequestError as e:
+                last_exception = e
+                logger.error("vLLM request error: %s", e)
+                if attempt < self.max_retries - 1:
+                    # FIX: Add exponential backoff delay
+                    backoff_time = 2**attempt
+                    await asyncio.sleep(backoff_time)
+                    continue
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Failed to connect to vLLM service: {str(e)}",
+                ) from e
+
+        # If we exhausted retries
+        if last_exception:
+            logger.error("vLLM request failed with last exception: %s", last_exception)
+        raise HTTPException(
+            status_code=502,
+            detail=f"vLLM service request failed after {self.max_retries} attempts",
+        )
+
     async def health_check(self) -> ProviderHealth:
-        """Check vLLM service health."""
+        """Check vLLM service health and measure latency."""
         start_time = time.time()
+
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{self.base_url}/health")
-                response.raise_for_status()
-                latency_ms = (time.time() - start_time) * 1000
+            # Use models endpoint for health check
+            url = f"{self.base_url}/models"
+            response = await self.client.get(url, timeout=5.0)
+
+            latency_ms = (time.time() - start_time) * 1000
+
+            if response.status_code == 200:
                 return ProviderHealth(
                     name=self.name,
                     healthy=True,
-                    latency_ms=latency_ms
+                    latency_ms=latency_ms,
                 )
-        except Exception as e:
-            latency_ms = (time.time() - start_time) * 1000
+
             return ProviderHealth(
                 name=self.name,
                 healthy=False,
                 latency_ms=latency_ms,
-                error=str(e)
+                error=f"HTTP {response.status_code}",
             )
+
+        except (httpx.TimeoutException, httpx.RequestError) as e:
+            latency_ms = (time.time() - start_time) * 1000
+            logger.error("vLLM health check failed: %s", e)
+            return ProviderHealth(
+                name=self.name,
+                healthy=False,
+                latency_ms=latency_ms,
+                error=str(e),
+            )
+
+    async def close(self) -> None:
+        """Close HTTP client connection and release resources."""
+        await self.client.aclose()

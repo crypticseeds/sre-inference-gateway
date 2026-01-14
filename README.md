@@ -162,6 +162,8 @@ sre-inference-gateway/
 │   │   └── tracing.py             # OpenTelemetry tracing
 │   ├── providers/
 │   │   ├── base.py                # Provider base class
+│   │   ├── openai.py              # OpenAI provider implementation
+│   │   ├── vllm.py                # vLLM provider implementation
 │   │   ├── mock.py                # Mock provider implementations
 │   │   └── registry.py            # Provider registry
 │   └── router/
@@ -175,6 +177,7 @@ sre-inference-gateway/
 │   ├── INCIDENT.md                # Simulated incident postmortem
 │   ├── API_DEPENDENCIES.md        # FastAPI dependencies guide
 │   ├── MODELS.md                  # Data models documentation
+│   ├── PROVIDERS.md               # Provider implementation guide
 │   ├── ENVIRONMENT.md             # Environment configuration
 │   └── ROADMAP.md                 # Future enhancements
 ├── tests/                         # Test suite
@@ -318,6 +321,7 @@ These are discussed as future considerations in `docs/DESIGN.md`.
 - `docs/INCIDENT.md` – simulated outage and postmortem
 - `docs/API_DEPENDENCIES.md` – FastAPI dependencies and request handling
 - `docs/MODELS.md` – Pydantic models and data structures
+- `docs/PROVIDERS.md` – provider implementation guide and usage examples
 - `docs/ENVIRONMENT.md` – environment configuration guide
 
 ## License

@@ -11,17 +11,41 @@ server:
 
 # Provider configurations
 providers:
+  - name: "openai"
+    type: "openai"
+    weight: 0.5
+    enabled: false  # Disabled by default, enable when API key is configured
+    base_url: "https://api.openai.com/v1"
+    api_key_env: "OPENAI_API_KEY"  # Environment variable for API key
+    health_check_url: null
+    timeout: 30.0
+    max_retries: 3
+  
+  - name: "vllm"
+    type: "vllm"
+    weight: 0.5
+    enabled: false  # Disabled by default, enable when vLLM service is running
+    base_url: "http://localhost:8080/v1"  # Changed from 8000 to avoid gateway port conflict
+    api_key_env: null  # vLLM doesn't require API key
+    health_check_url: null
+    timeout: 30.0
+    max_retries: 3
+  
   - name: "mock_openai"
+    type: "mock"
     weight: 0.5
     enabled: true
-    health_check_url: null  # No health check URL for mock provider
+    health_check_url: null
     timeout: 30.0
+    max_retries: 3
   
   - name: "mock_vllm"
+    type: "mock"
     weight: 0.5
     enabled: true
-    health_check_url: null  # No health check URL for mock provider
+    health_check_url: null
     timeout: 30.0
+    max_retries: 3
 
 # Health check configuration
 health:

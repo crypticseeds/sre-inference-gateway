@@ -8,13 +8,23 @@ class ProviderConfig(BaseModel):
     """Configuration for a single provider."""
     
     name: str = Field(..., description="Provider name")
+    type: str = Field(..., description="Provider type (openai, vllm, mock)")
     weight: float = Field(default=1.0, ge=0.0, description="Routing weight")
     enabled: bool = Field(default=True, description="Whether provider is enabled")
+    base_url: Optional[str] = Field(
+        default=None,
+        description="Provider base URL"
+    )
+    api_key_env: Optional[str] = Field(
+        default=None,
+        description="Environment variable name for API key"
+    )
     health_check_url: Optional[str] = Field(
         default=None, 
         description="Health check endpoint URL"
     )
     timeout: float = Field(default=30.0, gt=0, description="Request timeout in seconds")
+    max_retries: int = Field(default=3, ge=0, description="Maximum retry attempts")
 
 
 class ServerConfig(BaseModel):
@@ -78,8 +88,8 @@ class GatewayConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     providers: List[ProviderConfig] = Field(
         default_factory=lambda: [
-            ProviderConfig(name="mock_openai", weight=0.5),
-            ProviderConfig(name="mock_vllm", weight=0.5)
+            ProviderConfig(name="mock_openai", type="mock", weight=0.5),
+            ProviderConfig(name="mock_vllm", type="mock", weight=0.5)
         ],
         description="Provider configurations"
     )

@@ -66,9 +66,19 @@ async def test_provider_health_checks():
 
 def test_provider_registry():
     """Test provider registry."""
+    from app.config.models import ProviderConfig
+    
     registry = ProviderRegistry()
     
-    # Check default providers are registered
+    # Initialize with mock providers
+    mock_configs = [
+        ProviderConfig(name="mock_openai", type="mock", enabled=True),
+        ProviderConfig(name="mock_vllm", type="mock", enabled=True),
+    ]
+    
+    registry.initialize_from_config(mock_configs)
+    
+    # Check providers are registered
     providers = registry.list_providers()
     assert "mock_openai" in providers
     assert "mock_vllm" in providers
