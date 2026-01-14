@@ -58,6 +58,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     
+    # Root endpoint
+    @app.get("/")
+    async def root():
+        """Root endpoint with application information."""
+        return {
+            "App": "sre-inference-gateway",
+            "Version": "0.1.0",
+            "docs": "/docs",
+            "health": "/health",
+            "Developer": "Femi Akinlotan"
+        }
+    
     # Include API routes
     app.include_router(api_router, prefix="/v1")
     

@@ -13,6 +13,18 @@ def client():
     return TestClient(app)
 
 
+def test_root_endpoint(client):
+    """Test root endpoint displays application information."""
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["App"] == "sre-inference-gateway"
+    assert data["Version"] == "0.1.0"
+    assert data["Developer"] == "Femi Akinlotan"
+    assert data["docs"] == "/docs"
+    assert data["health"] == "/health"
+
+
 def test_health_endpoint(client):
     """Test health endpoint."""
     response = client.get("/health")
