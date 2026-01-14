@@ -26,18 +26,21 @@ def mock_gateway_config():
         providers=[
             ProviderConfig(
                 name="test_provider_1",
+                type="mock",
                 weight=0.6,
                 enabled=True,
                 health_check_url="http://localhost:8001/health",
             ),
             ProviderConfig(
                 name="test_provider_2",
+                type="mock",
                 weight=0.4,
                 enabled=True,
                 health_check_url="http://localhost:8002/health",
             ),
             ProviderConfig(
                 name="disabled_provider",
+                type="mock",
                 weight=0.0,
                 enabled=False,
                 health_check_url="http://localhost:8003/health",
@@ -196,8 +199,8 @@ class TestHealthEndpoints:
         # Mock config with 2 providers to match the cache
         mock_config = GatewayConfig(
             providers=[
-                ProviderConfig(name="provider1", enabled=True),
-                ProviderConfig(name="provider2", enabled=True),
+                ProviderConfig(name="provider1", type="mock", enabled=True),
+                ProviderConfig(name="provider2", type="mock", enabled=True),
             ]
         )
         mock_get_config.return_value = mock_config
@@ -218,9 +221,14 @@ class TestHealthEndpoints:
             "mock_vllm": {"name": "mock_vllm", "status": "healthy"},
         },
     )
-    def test_readiness_check_ready(self, mock_update, client):
+    @patch("app.router.router.provider_registry")
+    def test_readiness_check_ready(self, mock_registry, mock_update, client):
         """Test readiness endpoint when providers are available."""
-        # Use the default provider names that should be available
+        # Mock the provider registry to return providers
+        mock_registry.get_provider.side_effect = lambda name: (
+            MagicMock() if name in ["mock_openai", "mock_vllm"] else None
+        )
+
         response = client.get("/ready")
 
         assert response.status_code == 200
