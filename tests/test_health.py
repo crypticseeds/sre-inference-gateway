@@ -10,9 +10,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from app.api.health import (
     check_provider_health,
-    update_provider_health_cache,
-    _provider_health_cache,
-    _last_health_check
+    update_provider_health_cache
 )
 from app.config.models import GatewayConfig, ProviderConfig
 

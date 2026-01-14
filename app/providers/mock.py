@@ -2,7 +2,6 @@
 
 import asyncio
 import time
-from typing import Any, Dict
 
 from app.providers.base import (
     BaseProvider,

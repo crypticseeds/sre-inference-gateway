@@ -4,7 +4,6 @@ import os
 import tempfile
 import yaml
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -14,8 +13,7 @@ from app.config.models import (
     ProviderConfig, 
     ServerConfig, 
     HealthConfig,
-    LoggingConfig,
-    MetricsConfig
+    LoggingConfig
 )
 from app.config.settings import ConfigManager, Settings
 
