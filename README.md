@@ -23,18 +23,25 @@ OpenAI-compatible API gateway with provider abstraction, built with Python 3.13+
 
 2. **Run tests**:
    ```bash
-   uv run pytest tests/ -v
+   make test
    ```
 
 3. **Start development server**:
    ```bash
-   python run_dev.py
+   make dev
    ```
 
-4. **Test the API**:
+4. **Stop services**:
    ```bash
-   python test_gateway.py
+   make dev-stop
    ```
+
+5. **Clean up**:
+   ```bash
+   make clean
+   ```
+
+Run `make help` to see all available commands.
 
 ### Docker
 
@@ -136,16 +143,52 @@ The gateway uses Pydantic Settings for configuration:
 ### Project Structure
 
 ```
-app/
-├── api/              # FastAPI routes and dependencies
-│   ├── completions.py    # Chat completion endpoint
-│   ├── dependencies.py   # FastAPI dependency functions
-│   └── routes.py         # API route definitions
-├── config/           # Configuration management
-├── observability/    # Metrics and tracing
-├── providers/        # Provider abstractions
-└── router/           # Request routing logic
-tests/                # Test suite
+sre-inference-gateway/
+├── app/
+│   ├── main.py                    # FastAPI application entry point
+│   ├── api/
+│   │   ├── completions.py         # Chat completion endpoint
+│   │   ├── dependencies.py        # FastAPI dependency functions
+│   │   ├── health.py              # Health check endpoints
+│   │   └── routes.py              # API route definitions
+│   ├── config/
+│   │   ├── models.py              # Configuration data models
+│   │   └── settings.py            # Settings and config management
+│   ├── models/
+│   │   ├── requests.py            # Request models
+│   │   └── responses.py           # Response models
+│   ├── observability/
+│   │   ├── metrics.py             # Prometheus metrics
+│   │   └── tracing.py             # OpenTelemetry tracing
+│   ├── providers/
+│   │   ├── base.py                # Provider base class
+│   │   ├── mock.py                # Mock provider implementations
+│   │   └── registry.py            # Provider registry
+│   └── router/
+│       └── router.py              # Request routing logic
+├── infra/
+│   ├── docker-compose.yml         # Development environment
+│   └── docker-compose.prod.yml    # Production-like environment
+├── docs/
+│   ├── DESIGN.md                  # Architectural decisions
+│   ├── ARCHITECTURE.md            # System architecture
+│   ├── INCIDENT.md                # Simulated incident postmortem
+│   ├── API_DEPENDENCIES.md        # FastAPI dependencies guide
+│   ├── MODELS.md                  # Data models documentation
+│   ├── ENVIRONMENT.md             # Environment configuration
+│   └── ROADMAP.md                 # Future enhancements
+├── tests/                         # Test suite
+│   ├── test_main.py
+│   ├── test_config.py
+│   ├── test_dependencies.py
+│   ├── test_gateway.py
+│   ├── test_health.py
+│   ├── test_providers.py
+│   └── test_router.py
+├── config.yaml                    # Gateway configuration
+├── Dockerfile                     # Container image definition
+├── Makefile                       # Development commands
+└── pyproject.toml                 # Python dependencies (uv)
 ```
 
 ### Key API Dependencies

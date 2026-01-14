@@ -11,7 +11,8 @@ When beginning work on a Linear issue, follow this structured workflow to ensure
 ### Branch Management
 - **Always** create a new stacked branch using Graphite: `gt create <descriptive-branch-name>`
 - Use `gt create` to create a new stacked branch, then use `git commit` for commits on that branch, and finally use `gt submit` to push the stack
-- Branch names should be descriptive and relate to the issue (e.g., `fix-auth-validation`, `add-metrics-endpoint`)
+- Branch names should include issue ID, be descriptive and relate to the issue (e.g., `dev-XX: fix-auth-validation`, dev-xx: `add-metrics-endpoint`)
+- Use conventional commit format (feat:, fix:, docs:, etc.)
 - Use Graphite's stacking workflow for incremental changes
 
 ### Issue Status Management
