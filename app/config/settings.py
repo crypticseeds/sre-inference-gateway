@@ -2,11 +2,9 @@
 
 import asyncio
 import logging
-import os
 import threading
-from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import yaml
 from pydantic import Field
@@ -253,26 +251,6 @@ class Settings(BaseSettings):
             metrics_port=gateway_config.metrics.port,
         )
 
-
-@lru_cache()
-def get_settings() -> Settings:
-    """Get cached application settings."""
-    return Settings()
-
-
-def setup_logging() -> None:
-    """Setup application logging."""
-    settings = get_settings()
-    
-    # Safely get log level with fallback to INFO
-    log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
-    
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()],
-        force=True,
-    )
 
 def get_settings() -> Settings:
     """Get application settings with YAML config support.

@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import Depends, Header, Request
 from opentelemetry import trace
 
-from app.config.settings import get_settings, get_gateway_config
+from app.config.settings import get_gateway_config
 from app.router.router import RequestRouter
 
 

@@ -1,6 +1,5 @@
 """Test FastAPI dependencies."""
 
-import pytest
 from unittest.mock import Mock, patch
 from fastapi import Request
 from opentelemetry.trace import Span

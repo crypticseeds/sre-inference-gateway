@@ -3,7 +3,6 @@
 import pytest
 
 from app.router.router import RequestRouter
-from app.providers.registry import provider_registry
 
 
 def test_router_initialization():
