@@ -20,7 +20,7 @@ The provider system abstracts different inference backends (OpenAI, vLLM, etc.) 
         ┌───────────────────┼───────────────────┐
         │                   │                   │
 ┌───────┴────────┐  ┌──────┴───────┐  ┌───────┴────────┐
-│ OpenAIProvider │  │ VLLMProvider │  │  MockProvider  │
+│ OpenAIProvider │  │  VLLMAdapter │  │  MockProvider  │
 └────────────────┘  └──────────────┘  └────────────────┘
 ```
 
@@ -55,18 +55,18 @@ class CustomProvider(BaseProvider):
         pass
 ```
 
-## OpenAI Provider
+## OpenAI Adapter
 
 ### Overview
 
-The `OpenAIProvider` integrates with the OpenAI API to handle chat completion requests. It includes automatic retry logic, exponential backoff, comprehensive error handling, and health monitoring.
+The `OpenAIAdapter` integrates with the OpenAI API to handle chat completion requests. It includes automatic retry logic, exponential backoff, comprehensive error handling, and health monitoring.
 
 ### Initialization
 
 ```python
-from app.providers.openai import OpenAIProvider
+from app.providers.openai import OpenAIAdapter
 
-provider = OpenAIProvider(
+adapter = OpenAIAdapter(
     name="openai-gpt4",
     config={"model": "gpt-4", "priority": 1},
     api_key="sk-...",  # From Doppler in production
@@ -178,18 +178,163 @@ Health checks use the `/models` endpoint with a 5-second timeout.
 ### Resource Cleanup
 
 ```python
-# Always close the provider when done
+# Always close the adapter when done
 try:
-    response = await provider.chat_completion(request, "req-123")
+    response = await adapter.chat_completion(request, "req-123")
 finally:
-    await provider.close()
+    await adapter.close()
 ```
 
 Or use as an async context manager (if implemented):
 
 ```python
-async with OpenAIProvider(...) as provider:
-    response = await provider.chat_completion(request, "req-123")
+async with OpenAIAdapter(...) as adapter:
+    response = await adapter.chat_completion(request, "req-123")
+```
+
+## vLLM Adapter
+
+### Overview
+
+The `VLLMAdapter` integrates with vLLM inference services that expose an OpenAI-compatible API. vLLM is a high-throughput and memory-efficient inference engine for LLMs. The adapter handles request translation, automatic retry logic, comprehensive error handling, and health monitoring.
+
+### Initialization
+
+```python
+from app.providers.vllm import VLLMAdapter
+
+# Local vLLM service
+adapter = VLLMAdapter(
+    name="vllm-local",
+    config={"model": "llama-2-7b", "priority": 1},
+    base_url="http://localhost:8000/v1",
+    timeout=60.0,
+    max_retries=3
+)
+
+# Remote vLLM service
+remote_adapter = VLLMAdapter(
+    name="vllm-remote",
+    config={},
+    base_url="https://vllm.example.com/v1",
+    timeout=90.0
+)
+```
+
+### Parameters
+
+- **name** (str): Provider identifier for logging and metrics
+- **config** (Dict[str, Any]): Provider configuration dictionary
+- **base_url** (str): vLLM service base URL (default: `http://localhost:8000/v1`)
+- **timeout** (float): Request timeout in seconds (default: 30.0)
+- **max_retries** (int): Maximum retry attempts (default: 3)
+
+### Chat Completion
+
+```python
+from app.providers.base import ChatCompletionRequest
+
+# Create request
+request = ChatCompletionRequest(
+    model="llama-2-7b",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain quantum computing"}
+    ],
+    temperature=0.7,
+    max_tokens=200,
+    top_p=0.9
+)
+
+# Execute request
+response = await adapter.chat_completion(request, "req-xyz789")
+
+# Access response
+print(response.choices[0]["message"]["content"])
+print(f"Tokens used: {response.usage['total_tokens']}")
+```
+
+### Error Handling
+
+The adapter handles various error scenarios:
+
+**Invalid Requests (400)**
+```python
+# Raises HTTPException with status 400
+# Detail: "Invalid request: <error message>"
+# No retry attempted
+```
+
+**Service Unavailable (503)**
+```python
+# Automatically retries with exponential backoff
+# After max_retries, raises HTTPException with status 503
+# Detail: "vLLM service unavailable"
+```
+
+**Server Errors (5xx)**
+```python
+# Automatically retries with exponential backoff
+# After max_retries, raises HTTPException with status 502
+# Detail: "vLLM service error"
+```
+
+**Timeouts**
+```python
+# Automatically retries with exponential backoff
+# After max_retries, raises HTTPException with status 504
+# Detail: "vLLM service request timeout"
+```
+
+**Network Errors**
+```python
+# Automatically retries with exponential backoff
+# After max_retries, raises HTTPException with status 502
+# Detail: "Failed to connect to vLLM service: <error>"
+```
+
+### Retry Logic
+
+The adapter implements exponential backoff for transient failures:
+
+1. **First attempt**: Immediate request
+2. **Second attempt**: 1 second delay (2^0)
+3. **Third attempt**: 2 second delay (2^1)
+4. **Fourth attempt**: 4 second delay (2^2)
+
+Client errors (400) are not retried.
+
+### Health Checks
+
+```python
+# Check adapter health
+health = await adapter.health_check()
+
+if health.healthy:
+    print(f"Adapter: {health.name}")
+    print(f"Latency: {health.latency_ms:.2f}ms")
+else:
+    print(f"Adapter unhealthy: {health.error}")
+```
+
+Health checks use the `/models` endpoint with a 5-second timeout.
+
+### Resource Cleanup
+
+```python
+# Always close the adapter when done
+try:
+    response = await adapter.chat_completion(request, "req-123")
+finally:
+    await adapter.close()
+```
+
+Or use in application lifecycle:
+
+```python
+@app.on_event("shutdown")
+async def shutdown_event():
+    await adapter.close()
 ```
 
 ## Mock Providers
@@ -220,6 +365,145 @@ Mock providers:
 - Simulate processing delays (100-200ms)
 - Always report healthy status
 - Include mock token usage
+
+## Provider Factory
+
+The provider factory creates provider instances from configuration, abstracting the complexity of provider initialization.
+
+### Factory Usage
+
+```python
+from app.config.models import ProviderConfig
+from app.providers.factory import ProviderFactory
+
+# Create OpenAI provider from config
+openai_config = ProviderConfig(
+    name="openai-gpt4",
+    type="openai",
+    api_key_env="OPENAI_API_KEY",
+    base_url="https://api.openai.com/v1",
+    timeout=30.0,
+    max_retries=3,
+    weight=0.7,
+    enabled=True
+)
+
+openai_provider = ProviderFactory.create_provider(openai_config)
+
+# Create vLLM provider from config
+vllm_config = ProviderConfig(
+    name="vllm-local",
+    type="vllm",
+    base_url="http://localhost:8000/v1",
+    timeout=60.0,
+    max_retries=3,
+    weight=0.3,
+    enabled=True
+)
+
+vllm_provider = ProviderFactory.create_provider(vllm_config)
+
+# Create mock provider for testing
+mock_config = ProviderConfig(
+    name="mock-openai-test",
+    type="mock",
+    weight=1.0,
+    enabled=True
+)
+
+mock_provider = ProviderFactory.create_provider(mock_config)
+```
+
+### Supported Provider Types
+
+The factory supports three provider types:
+
+**OpenAI (`type="openai"`)**
+- Requires API key via environment variable
+- Defaults to `https://api.openai.com/v1` if base_url not specified
+- API key environment variable defaults to `OPENAI_API_KEY`
+
+**vLLM (`type="vllm"`)**
+- No API key required
+- Defaults to `http://localhost:8000/v1` if base_url not specified
+- Expects OpenAI-compatible endpoint
+
+**Mock (`type="mock"`)**
+- No API key or base URL required
+- Auto-selects MockOpenAIProvider or MockVLLMProvider based on name
+- If name contains "openai", uses MockOpenAIProvider
+- If name contains "vllm", uses MockVLLMProvider
+- Otherwise defaults to MockOpenAIProvider
+
+### Configuration from YAML
+
+```yaml
+# config.yaml
+providers:
+  - name: openai-gpt4
+    type: openai
+    api_key_env: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1
+    timeout: 30.0
+    max_retries: 3
+    weight: 0.7
+    enabled: true
+  
+  - name: vllm-local
+    type: vllm
+    base_url: http://localhost:8000/v1
+    timeout: 60.0
+    max_retries: 3
+    weight: 0.3
+    enabled: true
+```
+
+```python
+import yaml
+from app.config.models import ProviderConfig
+from app.providers.factory import ProviderFactory
+
+# Load config from YAML
+with open("config.yaml") as f:
+    config_data = yaml.safe_load(f)
+
+# Create providers from config
+providers = []
+for provider_data in config_data["providers"]:
+    config = ProviderConfig(**provider_data)
+    provider = ProviderFactory.create_provider(config)
+    providers.append(provider)
+```
+
+### Error Handling
+
+```python
+from app.providers.factory import ProviderFactory
+from app.config.models import ProviderConfig
+
+# Missing API key for OpenAI
+try:
+    config = ProviderConfig(
+        name="openai",
+        type="openai",
+        api_key_env="MISSING_KEY"
+    )
+    provider = ProviderFactory.create_provider(config)
+except ValueError as e:
+    print(f"Error: {e}")
+    # Error: OpenAI API key not found in environment variable: MISSING_KEY
+
+# Unknown provider type
+try:
+    config = ProviderConfig(
+        name="unknown",
+        type="unknown_type"
+    )
+    provider = ProviderFactory.create_provider(config)
+except ValueError as e:
+    print(f"Error: {e}")
+    # Error: Unknown provider type: unknown_type
+```
 
 ## Provider Registry
 
@@ -356,35 +640,35 @@ async def chat_completion(self, request, request_id):
 
 ```python
 # Bad
-provider = OpenAIProvider(...)
-response = await provider.chat_completion(request, "req-123")
+adapter = OpenAIAdapter(...)
+response = await adapter.chat_completion(request, "req-123")
 
 # Good
-provider = OpenAIProvider(...)
+adapter = OpenAIAdapter(...)
 try:
-    response = await provider.chat_completion(request, "req-123")
+    response = await adapter.chat_completion(request, "req-123")
 finally:
-    await provider.close()
+    await adapter.close()
 ```
 
 ### 2. Use Appropriate Timeouts
 
 ```python
 # Short timeout for health checks
-health = await provider.health_check()  # 5s timeout
+health = await adapter.health_check()  # 5s timeout
 
 # Longer timeout for completions
-provider = OpenAIProvider(..., timeout=30.0)
+adapter = OpenAIAdapter(..., timeout=30.0)
 ```
 
 ### 3. Configure Retries Based on Use Case
 
 ```python
 # Interactive use: fewer retries
-interactive_provider = OpenAIProvider(..., max_retries=2)
+interactive_adapter = OpenAIAdapter(..., max_retries=2)
 
 # Batch processing: more retries
-batch_provider = OpenAIProvider(..., max_retries=5)
+batch_adapter = OpenAIAdapter(..., max_retries=5)
 ```
 
 ### 4. Monitor Provider Health
@@ -430,11 +714,11 @@ class CircuitBreaker:
 
 ```python
 import pytest
-from app.providers.openai import OpenAIProvider
+from app.providers.openai import OpenAIAdapter
 
 @pytest.mark.asyncio
 async def test_openai_chat_completion():
-    provider = OpenAIProvider(
+    adapter = OpenAIAdapter(
         name="test-openai",
         config={},
         api_key="test-key"
@@ -446,7 +730,7 @@ async def test_openai_chat_completion():
     )
     
     # Mock httpx client
-    with patch.object(provider.client, 'post') as mock_post:
+    with patch.object(adapter.client, 'post') as mock_post:
         mock_post.return_value.json.return_value = {
             "id": "chatcmpl-123",
             "created": 1234567890,
@@ -455,7 +739,7 @@ async def test_openai_chat_completion():
             "usage": {"total_tokens": 10}
         }
         
-        response = await provider.chat_completion(request, "test-123")
+        response = await adapter.chat_completion(request, "test-123")
         assert response.id == "chatcmpl-123"
 ```
 
@@ -465,7 +749,7 @@ async def test_openai_chat_completion():
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_openai_real_api():
-    provider = OpenAIProvider(
+    adapter = OpenAIAdapter(
         name="openai-test",
         config={},
         api_key=os.getenv("OPENAI_API_KEY")
@@ -477,7 +761,7 @@ async def test_openai_real_api():
         max_tokens=5
     )
     
-    response = await provider.chat_completion(request, "integration-test")
+    response = await adapter.chat_completion(request, "integration-test")
     assert "test" in response.choices[0]["message"]["content"].lower()
 ```
 
