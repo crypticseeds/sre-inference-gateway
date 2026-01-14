@@ -63,11 +63,11 @@ def create_app() -> FastAPI:
     async def root():
         """Root endpoint with application information."""
         return {
-            "App": "sre-inference-gateway",
-            "Version": "0.1.0",
+            "app": "sre-inference-gateway",
+            "version": settings.version,
             "docs": "/docs",
             "health": "/health",
-            "Developer": "Femi Akinlotan"
+            "developer": "Femi Akinlotan"
         }
     
     # Include API routes

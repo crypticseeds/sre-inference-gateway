@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-config
+  namespace: default
+data:
+  VLLM_MODEL: "facebook/opt-125m"
+  VLLM_TENSOR_PARALLEL_SIZE: "1"
+  VLLM_GPU_MEMORY_UTILIZATION: "0.9"
+  VLLM_MAX_MODEL_LEN: "2048"
+  VLLM_TRUST_REMOTE_CODE: "false"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-cache
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-inference
+  namespace: default
+  labels:
+    app: vllm-inference
+    component: inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-inference
+  template:
+    metadata:
+      labels:
+        app: vllm-inference
+        component: inference
+    spec:
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:v0.6.0
+        ports:
+        - containerPort: 8001
+          name: http
+          protocol: TCP
+        env:
+        - name: VLLM_HOST
+          value: "0.0.0.0"
+        - name: VLLM_PORT
+          value: "8001"
+        envFrom:
+        - configMapRef:
+            name: vllm-config
+        command:
+        - sh
+        - -c
+        - |
+          python -m vllm.entrypoints.openai.api_server \
+            --host ${VLLM_HOST} \
+            --port ${VLLM_PORT} \
+            --model ${VLLM_MODEL} \
+            --tensor-parallel-size ${VLLM_TENSOR_PARALLEL_SIZE} \
+            --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION} \
+            --max-model-len ${VLLM_MAX_MODEL_LEN}
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "2"
+            nvidia.com/gpu: "1"
+          limits:
+            memory: "16Gi"
+            cpu: "4"
+            nvidia.com/gpu: "1"
+        volumeMounts:
+        - name: cache
+          mountPath: /root/.cache/huggingface
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: cache
+        persistentVolumeClaim:
+          claimName: vllm-cache
+      nodeSelector:
+        accelerator: nvidia-gpu
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-inference
+  namespace: default
+  labels:
+    app: vllm-inference
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: http
+  selector:
+    app: vllm-inference
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-inference-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm-inference
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 1
+        periodSeconds: 30
+      selectPolicy: Max
