@@ -81,6 +81,9 @@ async def create_chat_completion(
             messages=[msg.model_dump() for msg in chat_request.messages],
             temperature=chat_request.temperature,
             max_tokens=chat_request.max_tokens,
+            top_p=chat_request.top_p,
+            frequency_penalty=chat_request.frequency_penalty,
+            presence_penalty=chat_request.presence_penalty,
             stream=chat_request.stream,
             user=chat_request.user,
         )

@@ -33,11 +33,9 @@ Usage:
 """
 
 # Import models from their source modules
-from app.providers.base import (
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    ProviderHealth,
-)
+from app.models.requests import ChatCompletionRequest
+from app.models.responses import ChatCompletionResponse
+from app.providers.base import ProviderHealth
 
 # Export all models for external use
 __all__ = [
