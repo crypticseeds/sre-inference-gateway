@@ -148,10 +148,25 @@ async def health_check() -> Dict:
 
 @router.get("/health/detailed")
 async def detailed_health_check() -> Dict:
-    """Detailed health check with provider status.
-
+    """
+    Return a detailed health snapshot for the gateway, including aggregated provider status.
+    
+    The function refreshes the provider health cache, evaluates enabled providers, and classifies overall service health as one of: "healthy", "degraded", or "unhealthy".
+    
     Returns:
-        Detailed health status including provider information
+        dict: A dictionary with the following keys:
+            - status (str): Overall service health ("healthy", "degraded", or "unhealthy").
+            - service (str): Service name.
+            - timestamp (float): Unix timestamp when the snapshot was created.
+            - providers (dict):
+                - total (int): Number of enabled providers.
+                - healthy (int): Count of enabled providers currently healthy.
+                - unhealthy (int): Count of enabled providers not healthy.
+                - details (list): List of health dictionaries for enabled providers (each contains provider name, status, response_time, error, last_check, etc.).
+            - configuration (dict):
+                - version: Configured service version.
+                - health_check_interval: Configured health check interval.
+                - last_health_check: Timestamp of the last health-cache update.
     """
     # Update health cache
     await update_provider_health_cache()
