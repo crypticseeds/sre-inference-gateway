@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
-from app.providers.vllm import VLLMProvider
+from app.providers.vllm import VLLMAdapter
 from app.providers.base import ChatCompletionRequest, ProviderHealth
 
 
@@ -12,16 +12,20 @@ from app.providers.base import ChatCompletionRequest, ProviderHealth
 def vllm_config():
     """vLLM provider configuration."""
     return {
-        "base_url": "http://localhost:8001",
         "timeout": 30.0,
-        "api_key": "EMPTY"
     }
 
 
 @pytest.fixture
 def vllm_provider(vllm_config):
-    """Create vLLM provider instance."""
-    return VLLMProvider(name="vllm", config=vllm_config)
+    """Create vLLM adapter instance."""
+    return VLLMAdapter(
+        name="vllm",
+        config=vllm_config,
+        base_url="http://localhost:8001/v1",
+        timeout=30.0,
+        max_retries=3,
+    )
 
 
 @pytest.fixture
@@ -31,7 +35,7 @@ def sample_request():
         model="facebook/opt-125m",
         messages=[{"role": "user", "content": "Hello, how are you?"}],
         temperature=0.7,
-        max_tokens=100
+        max_tokens=100,
     )
 
 
@@ -39,17 +43,18 @@ def sample_request():
 async def test_vllm_provider_initialization(vllm_provider):
     """Test vLLM provider initialization."""
     assert vllm_provider.name == "vllm"
-    assert vllm_provider.base_url == "http://localhost:8001"
+    assert vllm_provider.base_url == "http://localhost:8001/v1"
     assert vllm_provider.timeout == 30.0
-    assert vllm_provider.api_key == "EMPTY"
+    assert vllm_provider.max_retries == 3
 
 
 @pytest.mark.asyncio
 async def test_vllm_provider_base_url_trailing_slash():
     """Test that trailing slash is removed from base_url."""
-    config = {"base_url": "http://localhost:8001/", "timeout": 30.0}
-    provider = VLLMProvider(name="vllm", config=config)
-    assert provider.base_url == "http://localhost:8001"
+    provider = VLLMAdapter(
+        name="vllm", config={}, base_url="http://localhost:8001/v1/", timeout=30.0
+    )
+    assert provider.base_url == "http://localhost:8001/v1"
 
 
 @pytest.mark.asyncio
@@ -60,21 +65,25 @@ async def test_chat_completion_success(vllm_provider, sample_request):
         "object": "chat.completion",
         "created": 1234567890,
         "model": "facebook/opt-125m",
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello!"}, "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18}
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
     }
-    
+
     mock_response = MagicMock()
+    mock_response.status_code = 200
     mock_response.json.return_value = mock_response_data
-    mock_response.raise_for_status = MagicMock()
-    
-    with patch("app.providers.vllm.httpx.AsyncClient") as mock_client:
-        mock_instance = AsyncMock()
-        mock_instance.post.return_value = mock_response
-        mock_client.return_value.__aenter__.return_value = mock_instance
-        
-        response = await vllm_provider.chat_completion(sample_request, "test-request-id")
-        
+
+    with patch.object(vllm_provider.client, "post", return_value=mock_response):
+        response = await vllm_provider.chat_completion(
+            sample_request, "test-request-id"
+        )
+
         assert response.id == "chatcmpl-123"
         assert response.model == "facebook/opt-125m"
         assert len(response.choices) == 1
@@ -84,45 +93,44 @@ async def test_chat_completion_success(vllm_provider, sample_request):
 @pytest.mark.asyncio
 async def test_chat_completion_http_error(vllm_provider, sample_request):
     """Test chat completion with HTTP error."""
+    from fastapi import HTTPException
+
     mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-        "500 Server Error", request=MagicMock(), response=MagicMock(status_code=500)
-    )
-    
-    with patch("app.providers.vllm.httpx.AsyncClient") as mock_client:
-        mock_instance = AsyncMock()
-        mock_instance.post.return_value = mock_response
-        mock_client.return_value.__aenter__.return_value = mock_instance
-        
-        with pytest.raises(httpx.HTTPStatusError):
+    mock_response.status_code = 500
+    mock_response.text = "Internal Server Error"
+
+    with patch.object(vllm_provider.client, "post", return_value=mock_response):
+        with pytest.raises(HTTPException) as exc_info:
             await vllm_provider.chat_completion(sample_request, "test-id")
+
+        assert exc_info.value.status_code == 502
 
 
 @pytest.mark.asyncio
 async def test_chat_completion_timeout(vllm_provider, sample_request):
     """Test chat completion with timeout."""
-    with patch("app.providers.vllm.httpx.AsyncClient") as mock_client:
-        mock_instance = AsyncMock()
-        mock_instance.post.side_effect = httpx.TimeoutException("Request timeout")
-        mock_client.return_value.__aenter__.return_value = mock_instance
-        
-        with pytest.raises(httpx.TimeoutException):
+    from fastapi import HTTPException
+
+    with patch.object(
+        vllm_provider.client,
+        "post",
+        side_effect=httpx.TimeoutException("Request timeout"),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
             await vllm_provider.chat_completion(sample_request, "test-id")
+
+        assert exc_info.value.status_code == 504
 
 
 @pytest.mark.asyncio
 async def test_health_check_success(vllm_provider):
     """Test successful health check."""
     mock_response = MagicMock()
-    mock_response.raise_for_status = MagicMock()
-    
-    with patch("app.providers.vllm.httpx.AsyncClient") as mock_client:
-        mock_instance = AsyncMock()
-        mock_instance.get.return_value = mock_response
-        mock_client.return_value.__aenter__.return_value = mock_instance
-        
+    mock_response.status_code = 200
+
+    with patch.object(vllm_provider.client, "get", return_value=mock_response):
         health = await vllm_provider.health_check()
-        
+
         assert isinstance(health, ProviderHealth)
         assert health.name == "vllm"
         assert health.healthy is True
@@ -133,13 +141,13 @@ async def test_health_check_success(vllm_provider):
 @pytest.mark.asyncio
 async def test_health_check_failure(vllm_provider):
     """Test health check failure."""
-    with patch("app.providers.vllm.httpx.AsyncClient") as mock_client:
-        mock_instance = AsyncMock()
-        mock_instance.get.side_effect = httpx.ConnectError("Connection refused")
-        mock_client.return_value.__aenter__.return_value = mock_instance
-        
+    with patch.object(
+        vllm_provider.client,
+        "get",
+        side_effect=httpx.ConnectError("Connection refused"),
+    ):
         health = await vllm_provider.health_check()
-        
+
         assert health.name == "vllm"
         assert health.healthy is False
         assert "Connection refused" in health.error

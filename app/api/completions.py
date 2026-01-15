@@ -36,22 +36,22 @@ async def create_chat_completion(
     _: None = Depends(setup_request_context),
 ) -> ChatCompletionResponse:
     """Create a chat completion.
-    
+
     Args:
         request: FastAPI request object
         chat_request: Chat completion request
         request_id: Request ID
         provider_priority: Optional provider priority
         request_router: Request router instance
-        
+
     Returns:
         Chat completion response
-        
+
     Raises:
         HTTPException: If no providers available or provider error
     """
     span = trace.get_current_span()
-    
+
     try:
         # Select provider
         provider = request_router.select_provider(provider_priority)
@@ -59,23 +59,24 @@ async def create_chat_completion(
             logger.error(f"No available providers for request {request_id}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="No inference providers available"
+                detail="No inference providers available",
             )
-        
+
         # Add provider info to span
         if span:
             span.set_attribute("provider.name", provider.name)
             span.set_attribute("chat.model", chat_request.model)
             span.set_attribute("chat.stream", chat_request.stream)
             span.set_attribute("chat.messages_count", len(chat_request.messages))
-        
+
         logger.info(
             f"Processing request {request_id} with provider {provider.name} "
             f"for model {chat_request.model}"
         )
-        
+
         # Convert to base model format for provider compatibility
         from app.providers.base import ChatCompletionRequest as BaseRequest
+
         base_request = BaseRequest(
             model=chat_request.model,
             messages=[msg.model_dump() for msg in chat_request.messages],
@@ -87,13 +88,13 @@ async def create_chat_completion(
             stream=chat_request.stream,
             user=chat_request.user,
         )
-        
+
         # Process request
         response = await provider.chat_completion(base_request, request_id)
-        
+
         logger.info(f"Completed request {request_id} successfully")
         return response
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -101,8 +102,8 @@ async def create_chat_completion(
         if span:
             span.set_attribute("error", True)
             span.set_attribute("error.message", str(e))
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
+            detail="Internal server error",
         )

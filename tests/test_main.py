@@ -48,14 +48,12 @@ def test_chat_completions_endpoint(client):
     """Test chat completions endpoint."""
     request_data = {
         "model": "gpt-3.5-turbo",
-        "messages": [
-            {"role": "user", "content": "Hello, world!"}
-        ]
+        "messages": [{"role": "user", "content": "Hello, world!"}],
     }
-    
+
     response = client.post("/v1/chat/completions", json=request_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     assert "id" in data
     assert "object" in data

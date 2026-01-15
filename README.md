@@ -162,8 +162,9 @@ sre-inference-gateway/
 │   │   └── tracing.py             # OpenTelemetry tracing
 │   ├── providers/
 │   │   ├── base.py                # Provider base class
+│   │   ├── factory.py             # Provider factory for creating instances
 │   │   ├── openai.py              # OpenAI provider implementation
-│   │   ├── vllm.py                # vLLM provider implementation
+│   │   ├── vllm.py                # vLLM adapter implementation
 │   │   ├── mock.py                # Mock provider implementations
 │   │   └── registry.py            # Provider registry
 │   └── router/
@@ -178,6 +179,9 @@ sre-inference-gateway/
 │   ├── API_DEPENDENCIES.md        # FastAPI dependencies guide
 │   ├── MODELS.md                  # Data models documentation
 │   ├── PROVIDERS.md               # Provider implementation guide
+│   ├── OPENAI_ADAPTER_API.md      # OpenAI adapter API reference
+│   ├── OPENAI_PROVIDER_SUMMARY.md # OpenAI provider implementation summary
+│   ├── TEST_REAL_PROVIDERS.md     # Provider adapter test documentation
 │   ├── ENVIRONMENT.md             # Environment configuration
 │   └── ROADMAP.md                 # Future enhancements
 ├── tests/                         # Test suite
@@ -187,6 +191,7 @@ sre-inference-gateway/
 │   ├── test_gateway.py
 │   ├── test_health.py
 │   ├── test_providers.py
+│   ├── test_real_providers.py     # Provider adapter unit tests
 │   └── test_router.py
 ├── config.yaml                    # Gateway configuration
 ├── Dockerfile                     # Container image definition
@@ -322,6 +327,9 @@ These are discussed as future considerations in `docs/DESIGN.md`.
 - `docs/API_DEPENDENCIES.md` – FastAPI dependencies and request handling
 - `docs/MODELS.md` – Pydantic models and data structures
 - `docs/PROVIDERS.md` – provider implementation guide and usage examples
+- `docs/OPENAI_ADAPTER_API.md` – OpenAI adapter API reference documentation
+- `docs/OPENAI_PROVIDER_SUMMARY.md` – OpenAI provider implementation summary
+- `docs/TEST_REAL_PROVIDERS.md` – provider adapter test documentation
 - `docs/ENVIRONMENT.md` – environment configuration guide
 
 ## License

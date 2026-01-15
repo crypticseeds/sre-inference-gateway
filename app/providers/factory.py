@@ -32,9 +32,9 @@ Example:
     ```
 
 Supported Provider Types:
-    - openai: OpenAI API provider (requires API key)
-    - vllm: vLLM inference service provider (OpenAI-compatible)
-    - mock: Mock providers for testing (MockOpenAIAdapter, MockVLLMAdapter)
+    - openai: OpenAI API adapter (requires API key)
+    - vllm: vLLM inference service adapter (OpenAI-compatible)
+    - mock: Mock providers for testing (MockOpenAIProvider, MockVLLMProvider)
 """
 
 import logging
@@ -105,7 +105,7 @@ class ProviderFactory:
         Provider Type Mapping:
             - "openai": Creates OpenAIAdapter instance
             - "vllm": Creates VLLMAdapter instance
-            - "mock": Creates MockOpenAIAdapter or MockVLLMAdapter based on name
+            - "mock": Creates MockOpenAIProvider or MockVLLMProvider based on name
 
         Args:
             config: Provider configuration containing:
@@ -123,7 +123,7 @@ class ProviderFactory:
                 The specific type depends on the provider type:
                 - OpenAIAdapter for "openai" type
                 - VLLMAdapter for "vllm" type
-                - MockOpenAIAdapter or MockVLLMAdapter for "mock" type
+                - MockOpenAIProvider or MockVLLMProvider for "mock" type
 
         Raises:
             ValueError: If provider type is unknown or unsupported

@@ -12,10 +12,10 @@ from app.router.router import RequestRouter
 
 def get_request_id(x_request_id: Optional[str] = Header(None)) -> str:
     """Get or generate request ID.
-    
+
     Args:
         x_request_id: Optional request ID from header
-        
+
     Returns:
         Request ID
     """
@@ -25,13 +25,13 @@ def get_request_id(x_request_id: Optional[str] = Header(None)) -> str:
 
 
 def get_provider_priority(
-    x_provider_priority: Optional[str] = Header(None)
+    x_provider_priority: Optional[str] = Header(None),
 ) -> Optional[str]:
     """Get provider priority from header.
-    
+
     Args:
         x_provider_priority: Optional provider priority from header
-        
+
     Returns:
         Provider priority or None
     """
@@ -40,7 +40,7 @@ def get_provider_priority(
 
 def get_router() -> RequestRouter:
     """Get request router instance.
-    
+
     Returns:
         RequestRouter instance
     """
@@ -54,7 +54,7 @@ def setup_request_context(
     request_id: str = Depends(get_request_id),
 ) -> None:
     """Setup request context for tracing.
-    
+
     Args:
         request: FastAPI request object
         request_id: Request ID

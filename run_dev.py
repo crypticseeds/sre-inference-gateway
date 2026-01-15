@@ -10,24 +10,29 @@ def main():
     """Run the development server."""
     # Ensure we're in the right directory
     project_root = Path(__file__).parent
-    
+
     # Run with uv
     cmd = [
-        "uv", "run", "uvicorn", 
+        "uv",
+        "run",
+        "uvicorn",
         "app.main:app",
-        "--host", "0.0.0.0",
-        "--port", "8000",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
         "--reload",
-        "--log-level", "info"
+        "--log-level",
+        "info",
     ]
-    
+
     print("Starting SRE Inference Gateway development server...")
     print(f"Command: {' '.join(cmd)}")
     print("Server will be available at: http://localhost:8000")
     print("API docs available at: http://localhost:8000/docs")
     print("Metrics available at: http://localhost:8000/metrics")
     print("\nPress Ctrl+C to stop the server")
-    
+
     try:
         subprocess.run(cmd, cwd=project_root, check=True)
     except KeyboardInterrupt:
