@@ -252,7 +252,16 @@ class OpenAIAdapter(BaseProvider):
                     ) from timeout_exc
 
                 except httpx.RequestError as req_err:
-                    logger.error("OpenAI request error: %s", req_err)
+                    elapsed_ms = (time.time() - start_time) * 1000
+                    logger.error(
+                        "OpenAI request error (attempt %d/%d): %s. "
+                        "Request ID: %s, Elapsed: %.2fms",
+                        attempt + 1,
+                        self.max_retries,
+                        req_err,
+                        request_id,
+                        elapsed_ms,
+                    )
 
                     if attempt < self.max_retries - 1:
                         await asyncio.sleep(2**attempt)
@@ -262,19 +271,9 @@ class OpenAIAdapter(BaseProvider):
                         detail=f"Failed to connect to OpenAI API: {str(req_err)}",
                     ) from req_err
 
-            # All retries exhausted
-            elapsed_ms = (time.time() - start_time) * 1000
-            logger.error(
-                "OpenAI API request failed after %d attempts. "
-                "Request ID: %s, Elapsed: %.2fms",
-                self.max_retries,
-                request_id,
-                elapsed_ms,
-            )
-            raise HTTPException(
-                status_code=502,
-                detail=f"OpenAI API request failed after {self.max_retries} attempts",
-            )
+            # Note: This point is unreachable - the loop always returns on success
+            # or raises an exception on final failure. This is intentional as all
+            # error handling and logging is done inside the loop's exception handlers.
 
         except HTTPException:
             # Re-raise HTTPExceptions as-is

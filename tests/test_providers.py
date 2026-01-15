@@ -3,7 +3,7 @@
 import pytest
 
 from app.providers.base import ChatCompletionRequest
-from app.providers.mock import MockOpenAIProvider, MockVLLMProvider
+from app.providers.mock import MockOpenAIAdapter, MockVLLMAdapter
 from app.providers.registry import ProviderRegistry
 
 
@@ -18,7 +18,7 @@ def chat_request():
 @pytest.mark.asyncio
 async def test_mock_openai_provider(chat_request):
     """Test mock OpenAI provider."""
-    provider = MockOpenAIProvider("test_openai", {})
+    provider = MockOpenAIAdapter("test_openai", {})
     request_id = "test-123"
 
     response = await provider.chat_completion(chat_request, request_id)
@@ -33,7 +33,7 @@ async def test_mock_openai_provider(chat_request):
 @pytest.mark.asyncio
 async def test_mock_vllm_provider(chat_request):
     """Test mock vLLM provider."""
-    provider = MockVLLMProvider("test_vllm", {})
+    provider = MockVLLMAdapter("test_vllm", {})
     request_id = "test-456"
 
     response = await provider.chat_completion(chat_request, request_id)
@@ -48,8 +48,8 @@ async def test_mock_vllm_provider(chat_request):
 @pytest.mark.asyncio
 async def test_provider_health_checks():
     """Test provider health checks."""
-    openai_provider = MockOpenAIProvider("test_openai", {})
-    vllm_provider = MockVLLMProvider("test_vllm", {})
+    openai_provider = MockOpenAIAdapter("test_openai", {})
+    vllm_provider = MockVLLMAdapter("test_vllm", {})
 
     openai_health = await openai_provider.health_check()
     vllm_health = await vllm_provider.health_check()

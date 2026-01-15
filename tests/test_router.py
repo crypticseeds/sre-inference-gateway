@@ -1,5 +1,7 @@
 """Test request router."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from app.router.router import RequestRouter
@@ -25,8 +27,20 @@ def test_router_validation():
         RequestRouter({"mock_openai": 0.0, "mock_vllm": 0.0})
 
 
-def test_deterministic_routing():
+@patch("app.router.router.provider_registry")
+def test_deterministic_routing(mock_registry):
     """Test deterministic provider selection."""
+    # Setup mock providers
+    mock_openai = MagicMock()
+    mock_openai.name = "mock_openai"
+    mock_vllm = MagicMock()
+    mock_vllm.name = "mock_vllm"
+
+    mock_registry.get_provider.side_effect = lambda name: {
+        "mock_openai": mock_openai,
+        "mock_vllm": mock_vllm,
+    }.get(name)
+
     weights = {"mock_openai": 0.5, "mock_vllm": 0.5}
     router = RequestRouter(weights)
 
@@ -40,8 +54,17 @@ def test_deterministic_routing():
     assert provider is not None  # Should still get a provider via weighted selection
 
 
-def test_weighted_routing():
+@patch("app.router.router.provider_registry")
+def test_weighted_routing(mock_registry):
     """Test weighted provider selection."""
+    # Setup mock provider
+    mock_openai = MagicMock()
+    mock_openai.name = "mock_openai"
+
+    mock_registry.get_provider.side_effect = lambda name: (
+        mock_openai if name == "mock_openai" else None
+    )
+
     weights = {"mock_openai": 1.0, "mock_vllm": 0.0}
     router = RequestRouter(weights)
 
@@ -52,8 +75,20 @@ def test_weighted_routing():
         assert provider.name == "mock_openai"
 
 
-def test_available_providers():
+@patch("app.router.router.provider_registry")
+def test_available_providers(mock_registry):
     """Test getting available providers."""
+    # Setup mock providers - only mock_openai and mock_vllm exist
+    mock_openai = MagicMock()
+    mock_openai.name = "mock_openai"
+    mock_vllm = MagicMock()
+    mock_vllm.name = "mock_vllm"
+
+    mock_registry.get_provider.side_effect = lambda name: {
+        "mock_openai": mock_openai,
+        "mock_vllm": mock_vllm,
+    }.get(name)
+
     weights = {"mock_openai": 0.5, "mock_vllm": 0.5, "non_existent": 0.0}
     router = RequestRouter(weights)
 

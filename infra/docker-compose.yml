@@ -2,7 +2,7 @@ services:
   gateway:
     build: .
     ports:
-      - "8000:8000"  # API port (includes /metrics endpoint)
+      - "8000:8000"
     environment:
       - DEBUG=${DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -10,9 +10,10 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8000/v1/health'); r.raise_for_status()"]
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8000/health'); r.raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -20,21 +21,21 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server /etc/redis/redis.conf --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command: redis-server /etc/redis/redis.conf --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     environment:
-      - REDISCLI_AUTH=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
-      - ../redis.conf:/etc/redis/redis.conf:ro
+      - ./redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli -a \"$$REDISCLI_AUTH\" ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 5s
 
-  # Prometheus for metrics collection
   prometheus:
-    image: prom/prometheus:v2.48.1  # Pinned version for reproducible deployments
+    image: prom/prometheus:v2.48.1
     ports:
       - "9091:9090"
     volumes:
@@ -43,12 +44,9 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
 
-  # Grafana for metrics visualization
   grafana:
-    image: grafana/grafana:10.2.3  # Pinned version for reproducible deployments
+    image: grafana/grafana:10.2.3
     ports:
       - "3000:3000"
     environment:

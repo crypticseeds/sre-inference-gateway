@@ -66,8 +66,8 @@ class TestGetRouter:
         # Mock gateway config
         mock_config = GatewayConfig(
             providers=[
-                ProviderConfig(name="mock_openai", weight=0.5),
-                ProviderConfig(name="mock_vllm", weight=0.5),
+                ProviderConfig(name="mock_openai", type="mock", weight=0.5),
+                ProviderConfig(name="mock_vllm", type="mock", weight=0.5),
             ]
         )
         mock_get_gateway_config.return_value = mock_config
@@ -85,8 +85,8 @@ class TestGetRouter:
         # Mock gateway config with non-normalized weights to test normalization
         mock_config = GatewayConfig(
             providers=[
-                ProviderConfig(name="mock_openai", weight=8.0),
-                ProviderConfig(name="mock_vllm", weight=2.0),
+                ProviderConfig(name="mock_openai", type="mock", weight=8.0),
+                ProviderConfig(name="mock_vllm", type="mock", weight=2.0),
             ]
         )
         mock_get_gateway_config.return_value = mock_config
@@ -188,7 +188,7 @@ class TestDependencyIntegration:
 
         # Setup mocks
         mock_config = GatewayConfig(
-            providers=[ProviderConfig(name="mock_openai", weight=1.0)]
+            providers=[ProviderConfig(name="mock_openai", type="mock", weight=1.0)]
         )
         mock_get_gateway_config.return_value = mock_config
 

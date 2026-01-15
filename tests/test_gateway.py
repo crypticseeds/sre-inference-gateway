@@ -1,33 +1,45 @@
 #!/usr/bin/env python3
-"""Simple test script for the SRE Inference Gateway."""
+"""Integration test script for the SRE Inference Gateway.
+
+These tests require a running server at localhost:8000.
+Run with: pytest tests/test_gateway.py -v -m integration
+
+To start the server: uv run python main.py
+"""
 
 import asyncio
 import time
 
 import httpx
+import pytest
+
+# Mark all tests in this module as integration tests
+pytestmark = pytest.mark.integration
 
 
+@pytest.mark.asyncio
 async def test_health_endpoints() -> None:
     """Test health and readiness endpoints."""
     async with httpx.AsyncClient() as client:
         print("Testing health endpoints...")
 
-        # Health check
-        response = await client.get("http://localhost:8000/v1/health")
+        # Health check (at root level, not /v1)
+        response = await client.get("http://localhost:8000/health")
         assert response.status_code == 200, f"Health check failed: {response.text}"
         health_data = response.json()
         assert isinstance(health_data, dict), "Health response should be a dict"
         assert "status" in health_data, "Health response should contain 'status' key"
         print(f"Health: {response.status_code} - {health_data}")
 
-        # Readiness check
-        response = await client.get("http://localhost:8000/v1/ready")
+        # Readiness check (at root level, not /v1)
+        response = await client.get("http://localhost:8000/ready")
         assert response.status_code == 200, f"Readiness check failed: {response.text}"
         ready_data = response.json()
         assert isinstance(ready_data, dict), "Ready response should be a dict"
         print(f"Ready: {response.status_code} - {ready_data}")
 
 
+@pytest.mark.asyncio
 async def test_chat_completion() -> None:
     """Test chat completion endpoint."""
     async with httpx.AsyncClient() as client:
@@ -74,6 +86,7 @@ async def test_chat_completion() -> None:
         print(f"Usage: {data['usage']}")
 
 
+@pytest.mark.asyncio
 async def test_provider_routing() -> None:
     """Test provider routing with headers."""
     async with httpx.AsyncClient() as client:
@@ -129,6 +142,7 @@ async def test_provider_routing() -> None:
         print(f"vLLM provider response: {data['choices'][0]['message']['content']}")
 
 
+@pytest.mark.asyncio
 async def test_request_id_propagation() -> None:
     """Test request ID propagation."""
     async with httpx.AsyncClient() as client:
