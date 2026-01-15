@@ -179,6 +179,14 @@ async def detailed_health_check() -> Dict:
     else:
         overall_status = "healthy"
 
+    # Filter provider details to only include enabled providers
+    enabled_provider_names = {provider.name for provider in enabled_providers}
+    filtered_details = [
+        health
+        for health in _provider_health_cache.values()
+        if health["name"] in enabled_provider_names
+    ]
+
     return {
         "status": overall_status,
         "service": "sre-inference-gateway",
@@ -187,7 +195,7 @@ async def detailed_health_check() -> Dict:
             "total": total_providers,
             "healthy": healthy_providers,
             "unhealthy": total_providers - healthy_providers,
-            "details": list(_provider_health_cache.values()),
+            "details": filtered_details,
         },
         "configuration": {
             "version": config.version,
