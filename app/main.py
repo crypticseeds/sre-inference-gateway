@@ -9,9 +9,15 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from app.api.routes import router as api_router
 from app.api.health import router as health_router
-from app.config.settings import get_settings, start_config_watching, stop_config_watching
+from app.config.settings import (
+    get_settings,
+    get_gateway_config,
+    start_config_watching,
+    stop_config_watching,
+)
 from app.observability.metrics import setup_metrics
 from app.observability.tracing import setup_tracing
+from app.providers.registry import provider_registry
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Setup metrics only (tracing is already setup in create_app)
     setup_metrics()
     
+    # Initialize providers from configuration
+    try:
+        gateway_config = get_gateway_config()
+        provider_registry.initialize_from_config(gateway_config.providers)
+        logger.info(f"Initialized {len(provider_registry.list_providers())} providers")
+    except Exception as e:
+        logger.error(f"Failed to initialize providers: {e}")
+        # Continue startup even if providers fail - allows health checks to report issues
+    
     # Start configuration file watching for hot-reload (only if event loop is running)
     try:
         start_config_watching()
@@ -33,6 +48,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning(f"Could not start config watching: {e}")
     
     yield
+    
+    # Close all provider connections
+    try:
+        await provider_registry.close_all()
+        logger.info("Closed all provider connections")
+    except Exception as e:
+        logger.warning(f"Error closing providers: {e}")
     
     # Stop configuration file watching
     try:

@@ -20,7 +20,7 @@ help:
 # Development
 dev:
 	@echo "Starting services..."
-	doppler run -- docker-compose up -d redis prometheus grafana
+	doppler run -- docker-compose -f infra/docker-compose.yml up -d redis prometheus grafana
 	@echo "Waiting for Redis..."
 	@sleep 2
 	@echo ""
@@ -35,14 +35,14 @@ dev:
 
 dev-stop:
 	@echo "Stopping all services..."
-	docker-compose down
+	docker-compose -f infra/docker-compose.yml down
 	@echo "Done."
 
 dev-logs:
-	docker-compose logs -f
+	docker-compose -f infra/docker-compose.yml logs -f
 
 status:
-	@docker-compose ps
+	@docker-compose -f infra/docker-compose.yml ps
 
 health:
 	@curl -s http://localhost:8000/v1/health | python -m json.tool || echo "Gateway not responding"
@@ -64,7 +64,7 @@ format:
 # Cleanup
 clean:
 	@echo "Stopping services and removing volumes..."
-	docker-compose down -v
+	docker-compose -f infra/docker-compose.yml down -v
 	@echo "Removing Python cache..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
