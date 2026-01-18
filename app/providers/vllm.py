@@ -48,7 +48,7 @@ class VLLMAdapter(BaseProvider):
         )
 
     # pylint: disable=too-many-branches
-    async def chat_completion(
+    async def _chat_completion_impl(
         self,
         request: ChatCompletionRequest,
         request_id: str,
@@ -171,7 +171,7 @@ class VLLMAdapter(BaseProvider):
             detail=f"vLLM service request failed after {self.max_retries} attempts",
         )
 
-    async def health_check(self) -> ProviderHealth:
+    async def _health_check_impl(self) -> ProviderHealth:
         """Check vLLM service health and measure latency."""
         start_time = time.time()
 

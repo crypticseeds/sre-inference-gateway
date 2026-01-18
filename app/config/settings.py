@@ -156,7 +156,8 @@ class ConfigManager:
         Args:
             callback: Function to call on config reload
         """
-        self._reload_callbacks.append(callback)
+        with self._lock:
+            self._reload_callbacks.append(callback)
 
     def get_config(self) -> GatewayConfig:
         """Get current configuration with thread-safe double-checked locking.

@@ -119,13 +119,47 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 ## Configuration
 
-The gateway uses Pydantic Settings for configuration:
+The gateway uses Pydantic models for comprehensive configuration management with full type safety and validation:
 
+### Configuration Models
+
+The `app.config.models` module provides the following configuration classes:
+
+- **`GatewayConfig`**: Main configuration container
+- **`ProviderConfig`**: Individual provider configuration (OpenAI, vLLM, mock)
+- **`ServerConfig`**: FastAPI server binding configuration
+- **`HealthConfig`**: Health check monitoring configuration
+- **`LoggingConfig`**: Application logging configuration
+- **`MetricsConfig`**: Prometheus metrics configuration
+- **`ResilienceConfig`**: Combined resilience patterns configuration
+- **`CircuitBreakerConfig`**: Circuit breaker pattern configuration
+- **`RetryConfig`**: Retry logic with exponential backoff configuration
+
+### Core Configuration
 - `DEBUG`: Enable debug mode (default: false)
 - `HOST`: Host to bind to (default: 0.0.0.0)
 - `PORT`: Port to bind to (default: 8000)
 - `LOG_LEVEL`: Logging level (default: INFO)
 - `PROVIDER_WEIGHTS`: JSON object with provider weights
+
+### Resilience Configuration
+The gateway includes built-in resilience patterns:
+
+- **Circuit Breaker**: Prevents cascading failures by temporarily stopping requests to failing services
+  - `failure_threshold`: Number of failures before opening circuit (default: 5)
+  - `recovery_timeout`: Time before attempting recovery (default: 60s)
+  - `expected_exception`: Exception type to trigger circuit breaker
+
+- **Retry Logic**: Handles transient failures with exponential backoff
+  - `max_attempts`: Maximum retry attempts (default: 3)
+  - `min_wait`/`max_wait`: Wait time bounds (default: 1.0s - 10.0s)
+  - `exponential_base`: Backoff multiplier (default: 2.0)
+  - `jitter`: Add randomization to prevent thundering herd (default: true)
+
+### Configuration Documentation
+- `docs/CONFIG_MODELS_API.md` - Complete configuration models API reference
+- `docs/RESILIENCE_CONFIG.md` - Detailed resilience configuration guide
+- `docs/CONFIG_MODELS_SUMMARY.md` - Configuration models overview and examples
 
 ## Health Checks
 
@@ -157,7 +191,7 @@ sre-inference-gateway/
 │   │   ├── health.py              # Health check endpoints
 │   │   └── routes.py              # API route definitions
 │   ├── config/
-│   │   ├── models.py              # Configuration data models
+│   │   ├── models.py              # Configuration data models (Pydantic)
 │   │   └── settings.py            # Settings and config management
 │   ├── models/
 │   │   ├── requests.py            # Request models
@@ -173,7 +207,10 @@ sre-inference-gateway/
 │   │   ├── mock.py                # Mock provider implementations
 │   │   └── registry.py            # Provider registry
 │   └── router/
-│       └── router.py              # Request routing logic
+│       ├── router.py              # Request routing logic
+│       ├── circuit_breaker.py     # Circuit breaker implementation
+│       ├── retry.py               # Retry logic with exponential backoff
+│       └── resilience.py          # Combined resilience patterns
 ├── infra/
 │   ├── docker-compose.yml         # Development environment
 │   └── docker-compose.prod.yml    # Production-like environment
@@ -187,8 +224,10 @@ sre-inference-gateway/
 │   ├── PROVIDER_FACTORY.md        # Provider factory documentation
 │   ├── OPENAI_ADAPTER_API.md      # OpenAI adapter API reference
 │   ├── OPENAI_PROVIDER_SUMMARY.md # OpenAI provider implementation summary
+│   ├── RESILIENCE_CONFIG.md       # Resilience configuration documentation
 │   ├── TEST_REAL_PROVIDERS.md     # Provider adapter test documentation
 │   ├── TEST_VLLM_PROVIDER.md      # vLLM provider test documentation
+│   ├── TEST_RESILIENCE.md         # Resilience patterns test documentation
 │   ├── ENVIRONMENT.md             # Environment configuration
 │   └── ROADMAP.md                 # Future enhancements
 ├── tests/                         # Test suite
@@ -199,6 +238,8 @@ sre-inference-gateway/
 │   ├── test_health.py
 │   ├── test_providers.py
 │   ├── test_real_providers.py     # Provider adapter unit tests
+│   ├── test_resilience.py         # Resilience patterns unit tests
+│   ├── test_vllm_provider.py      # vLLM provider specific unit tests
 │   └── test_router.py
 ├── config.yaml                    # Gateway configuration
 ├── Dockerfile                     # Container image definition
@@ -361,13 +402,20 @@ These are discussed as future considerations in `docs/DESIGN.md`.
 - `docs/API_DEPENDENCIES.md` – FastAPI dependencies and request handling
 - `docs/MODELS.md` – Pydantic models and data structures
 - `docs/RESPONSE_MODELS.md` – response model documentation with enhanced token tracking
+- `docs/CONFIG_MODELS_API.md` – complete configuration models API reference
+- `docs/CONFIG_MODELS_SUMMARY.md` – configuration models overview and examples
 - `docs/PROVIDERS.md` – provider implementation guide and usage examples
 - `docs/PROVIDER_FACTORY.md` – provider factory documentation and patterns
 - `docs/OPENAI_ADAPTER_API.md` – OpenAI adapter API reference documentation
+- `docs/OPENAI_ADAPTER_SIGNATURES.md` – OpenAI adapter API signatures and quick reference
+- `docs/OPENAI_ADAPTER_EXPORTS.md` – OpenAI adapter module exports and integration patterns
+- `docs/OPENAI_ADAPTER_EXAMPLES.md` – OpenAI adapter comprehensive usage examples
 - `docs/OPENAI_PROVIDER_SUMMARY.md` – OpenAI provider implementation summary
 - `docs/TEST_REAL_PROVIDERS.md` – provider adapter test documentation
 - `docs/TEST_VLLM_PROVIDER.md` – vLLM provider test documentation
+- `docs/TEST_RESILIENCE.md` – resilience patterns test documentation
 - `docs/ENVIRONMENT.md` – environment configuration guide
+- `docs/RESILIENCE_CONFIG.md` – resilience patterns configuration guide
 
 ## License
 

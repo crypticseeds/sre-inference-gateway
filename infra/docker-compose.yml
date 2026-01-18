@@ -24,11 +24,12 @@ services:
     command: redis-server /etc/redis/redis.conf --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDISCLI_AUTH=${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
       - ./redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 3

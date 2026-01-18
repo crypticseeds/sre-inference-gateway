@@ -134,6 +134,8 @@ class ChatCompletionResponse(BaseModel):
 }
 ```
 
+**Note**: As of the latest implementation, usage data is returned as a simple dictionary rather than a Pydantic model instance. This simplifies the interface and improves performance while maintaining full backward compatibility.
+
 #### Raises
 
 | Exception | Status Code | Description | Retry? |

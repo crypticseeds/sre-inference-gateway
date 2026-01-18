@@ -1,14 +1,17 @@
 """Tests for configuration system.
 
 This module provides comprehensive unit tests for the configuration system,
-including Pydantic models for provider, server, health, logging, and gateway
-configurations, as well as the ConfigManager and Settings classes.
+including Pydantic models for provider, server, health, logging, resilience,
+and gateway configurations, as well as the ConfigManager and Settings classes.
 
 Test Coverage:
     - ProviderConfig: Provider configuration validation and defaults
     - ServerConfig: Server binding configuration validation
     - HealthConfig: Health check configuration validation
     - LoggingConfig: Logging level validation and case handling
+    - CircuitBreakerConfig: Circuit breaker configuration validation
+    - RetryConfig: Retry configuration validation and constraints
+    - ResilienceConfig: Combined resilience patterns configuration
     - GatewayConfig: Full gateway configuration with provider management
     - ConfigManager: YAML configuration loading and hot-reload
     - Settings: Backward compatibility with legacy settings format
@@ -19,6 +22,7 @@ Key Features:
     - Invalid input rejection testing
     - YAML file loading and parsing
     - Configuration manager lifecycle testing
+    - Resilience patterns configuration testing
 
 Example Usage:
     Run all configuration tests:
@@ -26,6 +30,7 @@ Example Usage:
 
     Run specific test class:
         pytest tests/test_config.py::TestProviderConfig -v
+        pytest tests/test_config.py::TestResilienceConfig -v
 
     Run with coverage:
         pytest tests/test_config.py --cov=app.config
@@ -35,7 +40,11 @@ Test Classes:
     - TestServerConfig: Tests for ServerConfig model
     - TestHealthConfig: Tests for HealthConfig model
     - TestLoggingConfig: Tests for LoggingConfig model
+    - TestCircuitBreakerConfig: Tests for CircuitBreakerConfig model
+    - TestRetryConfig: Tests for RetryConfig model
+    - TestResilienceConfig: Tests for ResilienceConfig model
     - TestGatewayConfig: Tests for GatewayConfig model
+    - TestGatewayConfigWithResilience: Tests for GatewayConfig resilience integration
     - TestConfigManager: Tests for ConfigManager class
     - TestSettingsBackwardCompatibility: Tests for Settings class
 
@@ -59,6 +68,9 @@ from app.config.models import (
     ServerConfig,
     HealthConfig,
     LoggingConfig,
+    CircuitBreakerConfig,
+    RetryConfig,
+    ResilienceConfig,
 )
 from app.config.settings import ConfigManager, Settings
 
@@ -502,7 +514,12 @@ class TestConfigManager:
             "version": "2.0.0",
             "server": {"host": "127.0.0.1", "port": 9000, "debug": True},
             "providers": [
-                {"name": "test_provider", "type": "mock", "weight": 1.0, "enabled": True}
+                {
+                    "name": "test_provider",
+                    "type": "mock",
+                    "weight": 1.0,
+                    "enabled": True,
+                }
             ],
         }
 
@@ -621,3 +638,380 @@ class TestSettingsBackwardCompatibility:
         assert settings.port == 9000
         assert settings.debug is True
         assert settings.provider_weights == {"provider1": 0.8, "provider2": 0.2}
+
+
+class TestCircuitBreakerConfig:
+    """Test circuit breaker configuration model.
+
+    Tests validation, defaults, and constraints for the CircuitBreakerConfig
+    Pydantic model used to configure circuit breaker behavior.
+
+    Attributes Tested:
+        - failure_threshold (int): Number of failures before opening circuit (default: 5, must be >= 1)
+        - recovery_timeout (float): Time before attempting recovery (default: 60.0, must be > 0)
+        - expected_exception (str): Exception type to trigger circuit breaker (default: "Exception")
+    """
+
+    def test_valid_circuit_breaker_config(self):
+        """Test valid circuit breaker configuration.
+
+        Verifies that CircuitBreakerConfig accepts valid parameters.
+
+        Test Parameters:
+            - failure_threshold: 3
+            - recovery_timeout: 30.0
+            - expected_exception: "HTTPException"
+        """
+        config = CircuitBreakerConfig(
+            failure_threshold=3,
+            recovery_timeout=30.0,
+            expected_exception="HTTPException",
+        )
+
+        assert config.failure_threshold == 3
+        assert config.recovery_timeout == 30.0
+        assert config.expected_exception == "HTTPException"
+
+    def test_circuit_breaker_config_defaults(self):
+        """Test circuit breaker configuration defaults.
+
+        Verifies that CircuitBreakerConfig uses correct default values.
+
+        Expected Defaults:
+            - failure_threshold: 5
+            - recovery_timeout: 60.0
+            - expected_exception: "Exception"
+        """
+        config = CircuitBreakerConfig()
+
+        assert config.failure_threshold == 5
+        assert config.recovery_timeout == 60.0
+        assert config.expected_exception == "Exception"
+
+    def test_invalid_failure_threshold(self):
+        """Test invalid failure threshold validation.
+
+        Verifies that failure thresholds less than 1 are rejected.
+
+        Raises:
+            ValidationError: When failure_threshold is 0 or negative
+        """
+        with pytest.raises(ValidationError):
+            CircuitBreakerConfig(failure_threshold=0)
+
+        with pytest.raises(ValidationError):
+            CircuitBreakerConfig(failure_threshold=-1)
+
+    def test_invalid_recovery_timeout(self):
+        """Test invalid recovery timeout validation.
+
+        Verifies that recovery timeouts less than or equal to 0 are rejected.
+
+        Raises:
+            ValidationError: When recovery_timeout is 0 or negative
+        """
+        with pytest.raises(ValidationError):
+            CircuitBreakerConfig(recovery_timeout=0)
+
+        with pytest.raises(ValidationError):
+            CircuitBreakerConfig(recovery_timeout=-1.0)
+
+
+class TestRetryConfig:
+    """Test retry configuration model.
+
+    Tests validation, defaults, and constraints for the RetryConfig
+    Pydantic model used to configure retry behavior with exponential backoff.
+
+    Attributes Tested:
+        - max_attempts (int): Maximum retry attempts (default: 3, must be >= 1)
+        - min_wait (float): Minimum wait time in seconds (default: 1.0, must be > 0)
+        - max_wait (float): Maximum wait time in seconds (default: 10.0, must be > 0)
+        - exponential_base (float): Exponential backoff base (default: 2.0, must be > 1)
+        - jitter (bool): Add random jitter to wait times (default: True)
+    """
+
+    def test_valid_retry_config(self):
+        """Test valid retry configuration.
+
+        Verifies that RetryConfig accepts valid parameters.
+
+        Test Parameters:
+            - max_attempts: 5
+            - min_wait: 0.5
+            - max_wait: 30.0
+            - exponential_base: 1.5
+            - jitter: False
+        """
+        config = RetryConfig(
+            max_attempts=5,
+            min_wait=0.5,
+            max_wait=30.0,
+            exponential_base=1.5,
+            jitter=False,
+        )
+
+        assert config.max_attempts == 5
+        assert config.min_wait == 0.5
+        assert config.max_wait == 30.0
+        assert config.exponential_base == 1.5
+        assert config.jitter is False
+
+    def test_retry_config_defaults(self):
+        """Test retry configuration defaults.
+
+        Verifies that RetryConfig uses correct default values.
+
+        Expected Defaults:
+            - max_attempts: 3
+            - min_wait: 1.0
+            - max_wait: 10.0
+            - exponential_base: 2.0
+            - jitter: True
+        """
+        config = RetryConfig()
+
+        assert config.max_attempts == 3
+        assert config.min_wait == 1.0
+        assert config.max_wait == 10.0
+        assert config.exponential_base == 2.0
+        assert config.jitter is True
+
+    def test_invalid_max_attempts(self):
+        """Test invalid max attempts validation.
+
+        Verifies that max_attempts less than 1 is rejected.
+
+        Raises:
+            ValidationError: When max_attempts is 0 or negative
+        """
+        with pytest.raises(ValidationError):
+            RetryConfig(max_attempts=0)
+
+        with pytest.raises(ValidationError):
+            RetryConfig(max_attempts=-1)
+
+    def test_invalid_min_wait(self):
+        """Test invalid min wait validation.
+
+        Verifies that min_wait less than or equal to 0 is rejected.
+
+        Raises:
+            ValidationError: When min_wait is 0 or negative
+        """
+        with pytest.raises(ValidationError):
+            RetryConfig(min_wait=0)
+
+        with pytest.raises(ValidationError):
+            RetryConfig(min_wait=-1.0)
+
+    def test_invalid_max_wait(self):
+        """Test invalid max wait validation.
+
+        Verifies that max_wait less than or equal to 0 is rejected.
+
+        Raises:
+            ValidationError: When max_wait is 0 or negative
+        """
+        with pytest.raises(ValidationError):
+            RetryConfig(max_wait=0)
+
+        with pytest.raises(ValidationError):
+            RetryConfig(max_wait=-1.0)
+
+    def test_invalid_exponential_base(self):
+        """Test invalid exponential base validation.
+
+        Verifies that exponential_base less than or equal to 1 is rejected.
+
+        Raises:
+            ValidationError: When exponential_base is 1 or less
+        """
+        with pytest.raises(ValidationError):
+            RetryConfig(exponential_base=1.0)
+
+        with pytest.raises(ValidationError):
+            RetryConfig(exponential_base=0.5)
+
+
+class TestResilienceConfig:
+    """Test resilience configuration model.
+
+    Tests the ResilienceConfig Pydantic model which contains both
+    circuit breaker and retry configurations.
+
+    Attributes Tested:
+        - circuit_breaker (CircuitBreakerConfig): Circuit breaker configuration
+        - retry (RetryConfig): Retry configuration
+    """
+
+    def test_valid_resilience_config(self):
+        """Test valid resilience configuration.
+
+        Verifies that ResilienceConfig accepts valid circuit breaker
+        and retry configurations.
+
+        Test Configuration:
+            - Custom circuit breaker with failure_threshold=3
+            - Custom retry with max_attempts=5
+        """
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(
+                failure_threshold=3, recovery_timeout=45.0
+            ),
+            retry=RetryConfig(max_attempts=5, min_wait=0.5, max_wait=20.0),
+        )
+
+        assert config.circuit_breaker.failure_threshold == 3
+        assert config.circuit_breaker.recovery_timeout == 45.0
+        assert config.retry.max_attempts == 5
+        assert config.retry.min_wait == 0.5
+        assert config.retry.max_wait == 20.0
+
+    def test_resilience_config_defaults(self):
+        """Test resilience configuration defaults.
+
+        Verifies that ResilienceConfig creates default CircuitBreakerConfig
+        and RetryConfig instances when not explicitly provided.
+
+        Expected Behavior:
+            - circuit_breaker uses CircuitBreakerConfig defaults
+            - retry uses RetryConfig defaults
+        """
+        config = ResilienceConfig()
+
+        # Check circuit breaker defaults
+        assert config.circuit_breaker.failure_threshold == 5
+        assert config.circuit_breaker.recovery_timeout == 60.0
+        assert config.circuit_breaker.expected_exception == "Exception"
+
+        # Check retry defaults
+        assert config.retry.max_attempts == 3
+        assert config.retry.min_wait == 1.0
+        assert config.retry.max_wait == 10.0
+        assert config.retry.exponential_base == 2.0
+        assert config.retry.jitter is True
+
+    def test_resilience_config_partial_override(self):
+        """Test partial configuration override.
+
+        Verifies that ResilienceConfig allows overriding only one
+        of the nested configurations while using defaults for the other.
+
+        Test Cases:
+            - Override only circuit_breaker, use default retry
+            - Override only retry, use default circuit_breaker
+        """
+        # Override only circuit breaker
+        config1 = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(failure_threshold=7)
+        )
+        assert config1.circuit_breaker.failure_threshold == 7
+        assert config1.retry.max_attempts == 3  # Default
+
+        # Override only retry
+        config2 = ResilienceConfig(retry=RetryConfig(max_attempts=10))
+        assert config2.circuit_breaker.failure_threshold == 5  # Default
+        assert config2.retry.max_attempts == 10
+
+
+class TestGatewayConfigWithResilience:
+    """Test gateway configuration with resilience settings.
+
+    Tests the integration of ResilienceConfig into the main GatewayConfig
+    model and validates that resilience settings are properly included
+    in the overall configuration.
+    """
+
+    def test_gateway_config_with_default_resilience(self):
+        """Test gateway configuration with default resilience settings.
+
+        Verifies that GatewayConfig includes default resilience configuration
+        when not explicitly provided.
+        """
+        config = GatewayConfig()
+
+        assert hasattr(config, "resilience")
+        assert isinstance(config.resilience, ResilienceConfig)
+        assert config.resilience.circuit_breaker.failure_threshold == 5
+        assert config.resilience.retry.max_attempts == 3
+
+    def test_gateway_config_with_custom_resilience(self):
+        """Test gateway configuration with custom resilience settings.
+
+        Verifies that GatewayConfig accepts custom resilience configuration
+        and properly integrates it with other configuration sections.
+        """
+        custom_resilience = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(
+                failure_threshold=2,
+                recovery_timeout=30.0,
+                expected_exception="HTTPException",
+            ),
+            retry=RetryConfig(
+                max_attempts=4,
+                min_wait=0.25,
+                max_wait=15.0,
+                exponential_base=1.8,
+                jitter=False,
+            ),
+        )
+
+        config = GatewayConfig(version="2.0.0", resilience=custom_resilience)
+
+        assert config.version == "2.0.0"
+        assert config.resilience.circuit_breaker.failure_threshold == 2
+        assert config.resilience.circuit_breaker.recovery_timeout == 30.0
+        assert config.resilience.circuit_breaker.expected_exception == "HTTPException"
+        assert config.resilience.retry.max_attempts == 4
+        assert config.resilience.retry.min_wait == 0.25
+        assert config.resilience.retry.max_wait == 15.0
+        assert config.resilience.retry.exponential_base == 1.8
+        assert config.resilience.retry.jitter is False
+
+    def test_gateway_config_resilience_yaml_integration(self):
+        """Test gateway configuration resilience settings from YAML.
+
+        Verifies that resilience configuration can be loaded from YAML
+        and properly integrated into the GatewayConfig model.
+        """
+        config_data = {
+            "version": "1.5.0",
+            "resilience": {
+                "circuit_breaker": {
+                    "failure_threshold": 4,
+                    "recovery_timeout": 45.0,
+                    "expected_exception": "TimeoutError",
+                },
+                "retry": {
+                    "max_attempts": 6,
+                    "min_wait": 0.8,
+                    "max_wait": 25.0,
+                    "exponential_base": 1.6,
+                    "jitter": True,
+                },
+            },
+            "providers": [{"name": "test_provider", "type": "mock", "weight": 1.0}],
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_data, f)
+            config_path = f.name
+
+        try:
+            manager = ConfigManager(config_path)
+            config = manager.load_config()
+
+            assert config.version == "1.5.0"
+            assert config.resilience.circuit_breaker.failure_threshold == 4
+            assert config.resilience.circuit_breaker.recovery_timeout == 45.0
+            assert (
+                config.resilience.circuit_breaker.expected_exception == "TimeoutError"
+            )
+            assert config.resilience.retry.max_attempts == 6
+            assert config.resilience.retry.min_wait == 0.8
+            assert config.resilience.retry.max_wait == 25.0
+            assert config.resilience.retry.exponential_base == 1.6
+            assert config.resilience.retry.jitter is True
+        finally:
+            os.unlink(config_path)

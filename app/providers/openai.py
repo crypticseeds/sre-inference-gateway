@@ -72,8 +72,16 @@ class OpenAIAdapter(BaseProvider):
             base_url: OpenAI API base URL (default: https://api.openai.com/v1)
             timeout: Request timeout in seconds (default: 30.0)
             max_retries: Maximum number of retry attempts (default: 3)
+
+        Raises:
+            ValueError: If max_retries is less than 1
         """
         super().__init__(name, config)
+
+        # Validate max_retries
+        if max_retries < 1:
+            raise ValueError(f"max_retries must be at least 1, got {max_retries}")
+
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -89,7 +97,7 @@ class OpenAIAdapter(BaseProvider):
         )
 
     # pylint: disable=too-many-branches,too-many-statements
-    async def chat_completion(
+    async def _chat_completion_impl(
         self,
         request: ChatCompletionRequest,
         request_id: str,
@@ -277,11 +285,13 @@ class OpenAIAdapter(BaseProvider):
                     detail=f"Failed to connect to OpenAI API: {str(req_err)}",
                 ) from req_err
 
-        # Note: This point is unreachable - the loop always returns on success
-        # or raises an exception on final failure. This is intentional as all
-        # error handling and logging is done inside the loop's exception handlers.
+        # Note: This point should be unreachable - the loop always returns on success
+        # or raises an exception on final failure. Adding defensive error for safety.
+        raise RuntimeError(
+            f"All {self.max_retries} retry attempts failed without raising an exception"
+        )
 
-    async def health_check(self) -> ProviderHealth:
+    async def _health_check_impl(self) -> ProviderHealth:
         """Check OpenAI API health and measure latency.
 
         Performs a lightweight health check by querying the OpenAI models
