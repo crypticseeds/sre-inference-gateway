@@ -122,7 +122,16 @@ class ChatCompletionResponse(BaseModel):
     created: int                     # Unix timestamp
     model: str                       # Model used
     choices: list[Dict[str, Any]]    # Generated completions
-    usage: Dict[str, int]            # Token usage statistics
+    usage: Dict[str, int]            # Token usage statistics (dictionary format)
+```
+
+**Usage Dictionary Format:**
+```python
+{
+    "prompt_tokens": int,      # Number of tokens in the prompt
+    "completion_tokens": int,  # Number of tokens in the completion
+    "total_tokens": int        # Total tokens used (prompt + completion)
+}
 ```
 
 #### Raises
@@ -158,10 +167,16 @@ try:
     
     # Access response data
     content = response.choices[0]["message"]["content"]
+    
+    # Usage is now a simple dictionary
     tokens_used = response.usage["total_tokens"]
+    prompt_tokens = response.usage["prompt_tokens"]
+    completion_tokens = response.usage["completion_tokens"]
     
     print(f"Response: {content}")
-    print(f"Tokens: {tokens_used}")
+    print(f"Total tokens: {tokens_used}")
+    print(f"Prompt tokens: {prompt_tokens}")
+    print(f"Completion tokens: {completion_tokens}")
     
 except HTTPException as e:
     print(f"Error {e.status_code}: {e.detail}")
@@ -825,11 +840,20 @@ class CostTracker:
     }
     
     def calculate_cost(self, model, usage):
-        """Calculate request cost."""
+        """Calculate request cost.
+        
+        Args:
+            model: Model identifier (e.g., "gpt-4")
+            usage: Usage dictionary with token counts
+        
+        Returns:
+            Cost in USD
+        """
         if model not in self.PRICING:
             return 0.0
         
         pricing = self.PRICING[model]
+        # Usage is now a simple dictionary
         prompt_cost = (usage["prompt_tokens"] / 1000) * pricing["prompt"]
         completion_cost = (usage["completion_tokens"] / 1000) * pricing["completion"]
         

@@ -4,6 +4,28 @@
 
 This document summarizes the implementation of the OpenAI provider for the SRE Inference Gateway, including all features, documentation, and integration points.
 
+## Recent Changes
+
+### Usage Data Simplification (Latest)
+- **Changed**: Response usage data handling in `chat_completion()` method
+- **Before**: Created `ChatCompletionUsage` Pydantic model instance with optional detailed token tracking
+- **After**: Returns usage as a simple dictionary with basic token counts
+- **Rationale**: Simplified response handling while maintaining compatibility with base provider interface
+- **Impact**: 
+  - Cleaner code with fewer imports
+  - Direct dictionary access for token counts
+  - Maintains backward compatibility with existing code expecting dictionary format
+  - Removed dependency on `ChatCompletionUsage` model in adapter
+
+**Usage Dictionary Format:**
+```python
+{
+    "prompt_tokens": int,      # Tokens in the prompt
+    "completion_tokens": int,  # Tokens in the completion  
+    "total_tokens": int        # Total tokens used
+}
+```
+
 ## Implementation Details
 
 ### Core Features

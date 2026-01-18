@@ -161,7 +161,7 @@ sre-inference-gateway/
 │   │   └── settings.py            # Settings and config management
 │   ├── models/
 │   │   ├── requests.py            # Request models
-│   │   └── responses.py           # Response models
+│   │   └── responses.py           # Response models with enhanced token tracking
 │   ├── observability/
 │   │   ├── metrics.py             # Prometheus metrics
 │   │   └── tracing.py             # OpenTelemetry tracing
@@ -360,6 +360,7 @@ These are discussed as future considerations in `docs/DESIGN.md`.
 - `docs/INCIDENT.md` – simulated outage and postmortem
 - `docs/API_DEPENDENCIES.md` – FastAPI dependencies and request handling
 - `docs/MODELS.md` – Pydantic models and data structures
+- `docs/RESPONSE_MODELS.md` – response model documentation with enhanced token tracking
 - `docs/PROVIDERS.md` – provider implementation guide and usage examples
 - `docs/PROVIDER_FACTORY.md` – provider factory documentation and patterns
 - `docs/OPENAI_ADAPTER_API.md` – OpenAI adapter API reference documentation

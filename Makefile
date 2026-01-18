@@ -20,29 +20,34 @@ help:
 # Development
 dev:
 	@echo "Starting services..."
+# 	doppler run -- docker-compose -f infra/docker-compose.yml up -d redis prometheus grafana vllm
 	doppler run -- docker-compose -f infra/docker-compose.yml up -d redis prometheus grafana
-	@echo "Waiting for Redis..."
-	@sleep 2
+	@echo "Waiting for services to start..."
+	@sleep 5
 	@echo ""
 	@echo "Services running:"
 	@echo "  Gateway:    http://localhost:8000"
 	@echo "  API Docs:   http://localhost:8000/docs"
 	@echo "  Prometheus: http://localhost:9091"
 	@echo "  Grafana:    http://localhost:3000"
+# 	@echo "  vLLM:       http://localhost:8080/v1"
 	@echo ""
 	@echo "Starting gateway with Doppler..."
 	doppler run -- uv run run_dev.py
 
 dev-stop:
 	@echo "Stopping all services..."
-	docker-compose -f infra/docker-compose.yml down
+	@echo "Stopping gateway..."
+	@-pkill -f "uvicorn app.main:app" 2>/dev/null || true
+	@echo "Stopping Docker services..."
+	@doppler run -- docker-compose -f infra/docker-compose.yml down
 	@echo "Done."
 
 dev-logs:
-	docker-compose -f infra/docker-compose.yml logs -f
+	doppler run -- docker-compose -f infra/docker-compose.yml logs -f
 
 status:
-	@docker-compose -f infra/docker-compose.yml ps
+	@doppler run -- docker-compose -f infra/docker-compose.yml ps
 
 health:
 	@curl -s http://localhost:8000/v1/health | python -m json.tool || echo "Gateway not responding"
@@ -64,7 +69,7 @@ format:
 # Cleanup
 clean:
 	@echo "Stopping services and removing volumes..."
-	docker-compose -f infra/docker-compose.yml down -v
+	doppler run -- docker-compose -f infra/docker-compose.yml down -v
 	@echo "Removing Python cache..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true

@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "sre-inference-gateway-collection",
 		"name": "SRE Inference Gateway API Tests",
-		"description": "Comprehensive test collection for the SRE Inference Gateway API including OpenAI and vLLM providers",
+		"description": "Comprehensive test collection for the SRE Inference Gateway API including OpenAI and vLLM providers.\n\n## Setup Instructions\n\n### Testing Real Providers\n\nBy default, only mock providers are enabled. To test real providers:\n\n1. **OpenAI Provider**: \n   - Set environment variable: `export OPENAI_API_KEY=sk-your-key-here`\n   - Enable in config.yaml: Set `providers[0].enabled: true` (openai provider)\n   - Restart the gateway\n\n2. **vLLM Provider**:\n   - Start vLLM service: `docker run --gpus all -p 8080:8000 vllm/vllm-openai --model google/gemma-3-270m`\n   - Enable in config.yaml: Set `providers[1].enabled: true` (vllm provider)\n   - Restart the gateway\n\n### Provider Priority\n\nUse the `X-Provider-Priority` header to specify which provider to use:\n- `openai` - Route to OpenAI provider (will fail with 404 if not enabled)\n- `vllm` - Route to vLLM provider (will fail with 404 if not enabled)\n- `mock_openai` - Route to mock OpenAI provider\n- `mock_vllm` - Route to mock vLLM provider\n\n**Important**: Real provider tests will return 404 errors if the providers are not enabled. This is intentional to clearly show provider availability status.\n\n### Provider Availability Testing\n\nUse the \"Provider Availability Tests\" section to check if real providers are enabled and healthy before running other tests.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "sre-gateway-tests"
 	},
@@ -101,6 +101,131 @@
 				},
 				{
 					"name": "Single Provider Health - vLLM",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health/providers/vllm",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health",
+								"providers",
+								"vllm"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Provider Availability Tests",
+			"item": [
+				{
+					"name": "Check Available Providers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health/providers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health",
+								"providers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Test OpenAI Provider Availability",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Provider-Priority",
+								"value": "openai"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"model\": \"gpt-5-nano\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Test OpenAI provider availability\"\n    }\n  ],\n  \"max_tokens\": 10\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/chat/completions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"chat",
+								"completions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Test vLLM Provider Availability",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Provider-Priority",
+								"value": "vllm"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"model\": \"google/gemma-3-270m\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Test vLLM provider availability\"\n    }\n  ],\n  \"max_tokens\": 10\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/chat/completions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"v1",
+								"chat",
+								"completions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check OpenAI Provider Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health/providers/openai",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health",
+								"providers",
+								"openai"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check vLLM Provider Health",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -495,18 +620,22 @@
 					"response": []
 				},
 				{
-					"name": "Minimal Parameters",
+					"name": "All Parameters - vLLM",
 					"request": {
 						"method": "POST",
 						"header": [
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "X-Provider-Priority",
+								"value": "vllm"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"model\": \"gpt-5-nano\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Hello!\"\n    }\n  ]\n}"
+							"raw": "{\n  \"model\": \"google/gemma-3-270m\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Generate a list of creative project names for a web development agency.\"\n    }\n  ],\n  \"temperature\": 0.9,\n  \"max_tokens\": 150,\n  \"top_p\": 0.95,\n  \"user\": \"test-user-123\"\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/v1/chat/completions",
