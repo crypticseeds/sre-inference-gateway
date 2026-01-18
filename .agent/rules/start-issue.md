@@ -9,11 +9,21 @@ trigger: manual
 When beginning work on a Linear issue, follow this structured workflow to ensure proper branch management and issue tracking.
 
 ### Branch Management
-- **Always** create a new stacked branch using Graphite: `gt create <descriptive-branch-name>`
-- Use `gt create` to create a new stacked branch, then use `git commit` for commits on that branch, and finally use `gt submit` to push the stack
+- **CRITICAL**: Before creating any new branch, check if a branch for the issue already exists using `gt state` or `git branch`
+- **If branch exists**: Use `gt down`/`gt up` to navigate to the existing branch and work there
+- **Only create new branch if**: No branch exists for the issue OR you're adding a separate feature/fix on top that needs independent tracking
+- **Never create duplicate branches** for the same issue - this creates orphaned branches and submission problems
 - Branch names should include issue ID, be descriptive and relate to the issue (e.g., `dev-XX: fix-auth-validation`, dev-xx: `add-metrics-endpoint`)
 - Use conventional commit format (feat:, fix:, docs:, etc.)
 - Use Graphite's stacking workflow for incremental changes
+
+### Pre-Work Checklist
+**Before starting any work, ALWAYS:**
+1. Run `gt state` to see existing branches
+2. Check if a branch for this issue already exists
+3. If exists: Navigate to it with `gt down`/`gt up`
+4. If not exists: Only then create new branch with `gt create`
+5. **NEVER create a second branch for the same issue**
 
 ### Issue Status Management
 - Mark the Linear issue as "In Progress" when starting work
