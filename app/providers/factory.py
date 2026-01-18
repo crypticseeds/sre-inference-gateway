@@ -34,7 +34,7 @@ Example:
 Supported Provider Types:
     - openai: OpenAI API adapter (requires API key)
     - vllm: vLLM inference service adapter (OpenAI-compatible)
-    - mock: Mock providers for testing (MockOpenAIProvider, MockVLLMProvider)
+    - mock: Mock providers for testing (MockOpenAIAdapter, MockVLLMAdapter)
 """
 
 import logging

@@ -278,17 +278,6 @@ class OpenAIAdapter(BaseProvider):
         except HTTPException:
             # Re-raise HTTPExceptions as-is
             raise
-        except Exception as exc:
-            elapsed_ms = (time.time() - start_time) * 1000
-            logger.error(
-                "OpenAI provider error: %s. Request ID: %s, Elapsed: %.2fms",
-                str(exc),
-                request_id,
-                elapsed_ms,
-            )
-            raise HTTPException(
-                status_code=500, detail=f"Internal provider error: {str(exc)}"
-            ) from exc
 
     async def health_check(self) -> ProviderHealth:
         """Check OpenAI API health and measure latency.
