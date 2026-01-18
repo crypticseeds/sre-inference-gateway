@@ -200,7 +200,9 @@ Client errors (4xx except 429) are not retried.
 DEBUG: OpenAI request attempt 1/3: request_id=req-123, model=gpt-4
 INFO:  OpenAI request successful: request_id=req-123, elapsed=245.32ms
 WARN:  OpenAI API error (attempt 2/3): 429 - Rate limit exceeded
-ERROR: OpenAI API request failed after 3 attempts. Request ID: req-123, Elapsed: 5234.12ms
+WARN:  OpenAI API timeout (attempt 2/3)
+ERROR: OpenAI request error (attempt 3/3): Connection refused. Request ID: req-123, Elapsed: 5234.12ms
+ERROR: OpenAI provider error: Unexpected error. Request ID: req-123, Elapsed: 1234.56ms
 ```
 
 ## Testing Coverage

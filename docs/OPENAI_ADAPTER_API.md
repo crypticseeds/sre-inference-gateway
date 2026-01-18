@@ -197,15 +197,21 @@ logger.info(
     f"elapsed={elapsed_ms:.2f}ms"
 )
 
-# WARNING: Retry attempts
+# WARNING: Retry attempts (HTTP errors and timeouts)
 logger.warning(
     f"OpenAI API error (attempt {attempt + 1}/{max_retries}): "
     f"{status_code} - {error_text}"
 )
 
-# ERROR: Final failures
+# ERROR: Network/connection failures (with full context)
 logger.error(
-    f"OpenAI API request failed after {max_retries} attempts. "
+    f"OpenAI request error (attempt {attempt + 1}/{max_retries}): {error}. "
+    f"Request ID: {request_id}, Elapsed: {elapsed_ms:.2f}ms"
+)
+
+# ERROR: Unexpected provider errors
+logger.error(
+    f"OpenAI provider error: {error}. "
     f"Request ID: {request_id}, Elapsed: {elapsed_ms:.2f}ms"
 )
 ```
