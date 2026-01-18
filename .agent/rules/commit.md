@@ -70,6 +70,15 @@ These are HARD CONSTRAINTS, not suggestions:
 - [ ] Did the user explicitly ask me to commit/submit? ✓
 - [ ] Have I asked for confirmation if submitting? ✓
 - [ ] Am I avoiding branch deletion? ✓
+- [ ] **CRITICAL**: Before creating a new branch, did I check if one already exists for this issue? ✓
 
 **If any checkbox fails, STOP and ask the user for clarification.**
+
+## Branch Management Rules
+
+**CRITICAL RULE**: Before creating any new branch:
+1. **ALWAYS** run `gt state` first to check existing branches
+2. **If a branch exists for the issue**: Navigate to it using `gt down`/`gt up`
+3. **Only create new branch if**: No branch exists OR adding independent feature/fix
+4. **NEVER create duplicate branches** for the same issue - causes orphaned branches and submission failures
 
