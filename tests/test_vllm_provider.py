@@ -1,8 +1,10 @@
 """Tests for vLLM provider."""
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
+
 import httpx
+import pytest
+from fastapi import HTTPException
 
 from app.providers.vllm import VLLMAdapter
 from app.providers.base import ChatCompletionRequest, ProviderHealth
@@ -10,7 +12,11 @@ from app.providers.base import ChatCompletionRequest, ProviderHealth
 
 @pytest.fixture
 def vllm_config():
-    """vLLM provider configuration."""
+    """vLLM provider configuration.
+
+    Returns:
+        dict: Configuration dictionary for vLLM provider testing.
+    """
     return {
         "timeout": 30.0,
     }
@@ -18,11 +24,18 @@ def vllm_config():
 
 @pytest.fixture
 def vllm_provider(vllm_config):
-    """Create vLLM adapter instance."""
+    """Create vLLM adapter instance.
+
+    Args:
+        vllm_config: Configuration dictionary for the vLLM provider.
+
+    Returns:
+        VLLMAdapter: Configured vLLM adapter instance for testing.
+    """
     return VLLMAdapter(
         name="vllm",
         config=vllm_config,
-        base_url="http://localhost:8001/v1",
+        base_url="http://localhost:8080/v1",
         timeout=30.0,
         max_retries=3,
     )
@@ -30,7 +43,11 @@ def vllm_provider(vllm_config):
 
 @pytest.fixture
 def sample_request():
-    """Sample chat completion request."""
+    """Sample chat completion request.
+
+    Returns:
+        ChatCompletionRequest: A sample request for testing chat completions.
+    """
     return ChatCompletionRequest(
         model="facebook/opt-125m",
         messages=[{"role": "user", "content": "Hello, how are you?"}],
@@ -43,7 +60,7 @@ def sample_request():
 async def test_vllm_provider_initialization(vllm_provider):
     """Test vLLM provider initialization."""
     assert vllm_provider.name == "vllm"
-    assert vllm_provider.base_url == "http://localhost:8001/v1"
+    assert vllm_provider.base_url == "http://localhost:8080/v1"
     assert vllm_provider.timeout == 30.0
     assert vllm_provider.max_retries == 3
 
@@ -52,9 +69,9 @@ async def test_vllm_provider_initialization(vllm_provider):
 async def test_vllm_provider_base_url_trailing_slash():
     """Test that trailing slash is removed from base_url."""
     provider = VLLMAdapter(
-        name="vllm", config={}, base_url="http://localhost:8001/v1/", timeout=30.0
+        name="vllm", config={}, base_url="http://localhost:8080/v1/", timeout=30.0
     )
-    assert provider.base_url == "http://localhost:8001/v1"
+    assert provider.base_url == "http://localhost:8080/v1"
 
 
 @pytest.mark.asyncio
@@ -93,8 +110,6 @@ async def test_chat_completion_success(vllm_provider, sample_request):
 @pytest.mark.asyncio
 async def test_chat_completion_http_error(vllm_provider, sample_request):
     """Test chat completion with HTTP error."""
-    from fastapi import HTTPException
-
     mock_response = MagicMock()
     mock_response.status_code = 500
     mock_response.text = "Internal Server Error"
@@ -109,8 +124,6 @@ async def test_chat_completion_http_error(vllm_provider, sample_request):
 @pytest.mark.asyncio
 async def test_chat_completion_timeout(vllm_provider, sample_request):
     """Test chat completion with timeout."""
-    from fastapi import HTTPException
-
     with patch.object(
         vllm_provider.client,
         "post",

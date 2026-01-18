@@ -27,10 +27,10 @@ docker-compose up -d
 docker-compose up -d vllm
 
 # Check health
-curl http://localhost:8001/health
+curl http://localhost:8080/health
 
 # Test inference
-curl http://localhost:8001/v1/chat/completions \
+curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "facebook/opt-125m",
@@ -49,7 +49,7 @@ kubectl get pods -l app=vllm-inference
 kubectl logs -l app=vllm-inference
 
 # Port forward for testing
-kubectl port-forward svc/vllm-inference 8001:8001
+kubectl port-forward svc/vllm-inference 8080:8080
 ```
 
 ## Configuration
@@ -86,7 +86,7 @@ from app.providers.vllm import VLLMProvider
 provider = VLLMProvider(
     name="vllm",
     config={
-        "base_url": "http://vllm-inference:8001",
+        "base_url": "http://vllm-inference:8080",
         "timeout": 30.0
     }
 )
@@ -100,7 +100,7 @@ response = await provider.chat_completion(request, request_id)
 ### Health Check
 
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:8080/health
 ```
 
 ### Metrics
@@ -108,7 +108,7 @@ curl http://localhost:8001/health
 vLLM exposes Prometheus metrics at `/metrics`:
 
 ```bash
-curl http://localhost:8001/metrics
+curl http://localhost:8080/metrics
 ```
 
 Key metrics:
