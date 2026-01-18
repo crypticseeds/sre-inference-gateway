@@ -184,9 +184,11 @@ sre-inference-gateway/
 │   ├── API_DEPENDENCIES.md        # FastAPI dependencies guide
 │   ├── MODELS.md                  # Data models documentation
 │   ├── PROVIDERS.md               # Provider implementation guide
+│   ├── PROVIDER_FACTORY.md        # Provider factory documentation
 │   ├── OPENAI_ADAPTER_API.md      # OpenAI adapter API reference
 │   ├── OPENAI_PROVIDER_SUMMARY.md # OpenAI provider implementation summary
 │   ├── TEST_REAL_PROVIDERS.md     # Provider adapter test documentation
+│   ├── TEST_VLLM_PROVIDER.md      # vLLM provider test documentation
 │   ├── ENVIRONMENT.md             # Environment configuration
 │   └── ROADMAP.md                 # Future enhancements
 ├── tests/                         # Test suite
@@ -214,6 +216,33 @@ The `app.api.dependencies` module provides FastAPI dependency functions:
 - `setup_request_context()`: Sets up OpenTelemetry tracing context
 
 See `docs/API_DEPENDENCIES.md` for detailed usage examples and integration patterns.
+
+### Provider Factory
+
+The `app.providers.factory` module provides centralized provider creation:
+
+- `ProviderFactory.create_provider()`: Creates provider instances from configuration
+- Supports OpenAI, vLLM, and Mock provider types
+- Handles API key management via environment variables
+- Validates configuration and provides clear error messages
+
+```python
+from app.config.models import ProviderConfig
+from app.providers.factory import ProviderFactory
+
+# Create OpenAI provider from configuration
+config = ProviderConfig(
+    name="openai-gpt4",
+    type="openai",
+    api_key_env="OPENAI_API_KEY",
+    timeout=30.0
+)
+
+provider = ProviderFactory.create_provider(config)
+response = await provider.chat_completion(request, "req-123")
+```
+
+See `docs/PROVIDER_FACTORY.md` for comprehensive documentation and usage examples.
 
 #Reliable and observable multi-provider LLM inference, built with SRE and platform engineering principles.
 
@@ -332,9 +361,11 @@ These are discussed as future considerations in `docs/DESIGN.md`.
 - `docs/API_DEPENDENCIES.md` – FastAPI dependencies and request handling
 - `docs/MODELS.md` – Pydantic models and data structures
 - `docs/PROVIDERS.md` – provider implementation guide and usage examples
+- `docs/PROVIDER_FACTORY.md` – provider factory documentation and patterns
 - `docs/OPENAI_ADAPTER_API.md` – OpenAI adapter API reference documentation
 - `docs/OPENAI_PROVIDER_SUMMARY.md` – OpenAI provider implementation summary
 - `docs/TEST_REAL_PROVIDERS.md` – provider adapter test documentation
+- `docs/TEST_VLLM_PROVIDER.md` – vLLM provider test documentation
 - `docs/ENVIRONMENT.md` – environment configuration guide
 
 ## License
