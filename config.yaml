@@ -66,3 +66,17 @@ metrics:
 # Request processing limits
 max_request_size: 1048576  # 1MB in bytes
 request_timeout: 35.0      # Request timeout in seconds (slightly larger than provider timeout to avoid races)
+
+# Resilience configuration
+resilience:
+  circuit_breaker:
+    failure_threshold: 5      # Number of failures before opening circuit
+    recovery_timeout: 60.0    # Time in seconds before attempting recovery
+    expected_exception: "Exception"  # Exception type to trigger circuit breaker
+  
+  retry:
+    max_attempts: 3           # Maximum retry attempts
+    min_wait: 1.0            # Minimum wait time between retries in seconds
+    max_wait: 10.0           # Maximum wait time between retries in seconds
+    exponential_base: 2.0    # Exponential backoff base multiplier
+    jitter: true             # Add random jitter to wait times

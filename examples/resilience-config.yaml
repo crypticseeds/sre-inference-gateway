@@ -1,0 +1,67 @@
+# Example configuration demonstrating resilience patterns
+# This shows how to configure circuit breakers and retry logic
+
+version: "1.0.0"
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+
+# Provider configurations with different resilience needs
+providers:
+  # External API provider - more tolerant of failures
+  - name: "openai-gpt4"
+    type: "openai"
+    weight: 0.7
+    enabled: true
+    api_key_env: "OPENAI_API_KEY"
+    base_url: "https://api.openai.com/v1"
+    timeout: 30.0
+    max_retries: 3
+
+  # Local vLLM provider - faster recovery expected
+  - name: "vllm-local"
+    type: "vllm"
+    weight: 0.3
+    enabled: true
+    base_url: "http://localhost:8080/v1"  # Changed from 8000 to avoid port conflict with gateway
+    timeout: 60.0
+    max_retries: 5
+
+# Health check configuration
+health:
+  check_interval: 30.0
+  timeout: 5.0
+  retries: 3
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 9090
+
+# Resilience patterns configuration
+resilience:
+  # Circuit breaker settings
+  circuit_breaker:
+    failure_threshold: 5        # Open circuit after 5 consecutive failures
+    recovery_timeout: 60.0      # Wait 60 seconds before attempting recovery
+    expected_exception: "HTTPException"  # Exception type to trigger circuit breaker
+
+  # Retry configuration with exponential backoff
+  retry:
+    max_attempts: 3             # Maximum of 3 retry attempts
+    min_wait: 1.0              # Minimum wait time of 1 second
+    max_wait: 10.0             # Maximum wait time of 10 seconds
+    exponential_base: 2.0       # Double the wait time each retry
+    jitter: true               # Add randomization to prevent thundering herd
+
+# Request processing limits
+max_request_size: 1048576       # 1MB maximum request size
+request_timeout: 70.0           # 70 second request timeout (longer than provider timeouts to avoid premature termination)

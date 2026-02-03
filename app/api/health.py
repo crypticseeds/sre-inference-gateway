@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import get_router
 from app.config.settings import get_gateway_config
+from app.router.resilience import resilience_registry
 from app.router.router import RequestRouter
 
 logger = logging.getLogger(__name__)
@@ -269,6 +270,48 @@ async def provider_health_status() -> Dict:
     return {
         "providers": list(_provider_health_cache.values()),
         "last_updated": _last_health_check,
+        "timestamp": time.time(),
+    }
+
+
+@router.get("/health/circuit-breakers")
+async def circuit_breaker_status() -> Dict:
+    """Get circuit breaker status for all providers.
+
+    Returns:
+        Circuit breaker status for all providers
+    """
+    circuit_breaker_states = resilience_registry.get_all_circuit_breaker_states()
+
+    return {
+        "circuit_breakers": circuit_breaker_states,
+        "timestamp": time.time(),
+    }
+
+
+@router.get("/health/circuit-breakers/{provider_name}")
+async def single_provider_circuit_breaker(provider_name: str) -> Dict:
+    """Get circuit breaker status for a specific provider.
+
+    Args:
+        provider_name: Name of the provider
+
+    Returns:
+        Circuit breaker status for the provider
+
+    Raises:
+        HTTPException: If provider not found (404)
+    """
+    circuit_breaker_states = resilience_registry.get_all_circuit_breaker_states()
+
+    if provider_name not in circuit_breaker_states:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Circuit breaker for provider '{provider_name}' not found",
+        )
+
+    return {
+        "circuit_breaker": circuit_breaker_states[provider_name],
         "timestamp": time.time(),
     }
 

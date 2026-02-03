@@ -17,12 +17,17 @@ class ProviderRegistry:
         """Initialize provider registry."""
         self._providers: Dict[str, BaseProvider] = {}
 
-    def initialize_from_config(self, provider_configs: List[ProviderConfig]) -> None:
+    async def initialize_from_config(
+        self, provider_configs: List[ProviderConfig]
+    ) -> None:
         """Initialize providers from configuration.
 
         Args:
             provider_configs: List of provider configurations
         """
+        # Clean up existing providers before clearing
+        await self._cleanup_existing_providers()
+
         # Clear existing providers
         self._providers.clear()
 
@@ -43,6 +48,26 @@ class ProviderRegistry:
             logger.warning(
                 "No providers registered - all providers are disabled or failed to initialize"
             )
+
+    async def _cleanup_existing_providers(self) -> None:
+        """Clean up existing providers before clearing registry."""
+        import inspect
+
+        for name, provider in self._providers.items():
+            try:
+                if hasattr(provider, "close") and callable(provider.close):
+                    close_result = provider.close()
+                    # Check if the result is awaitable (async function)
+                    if inspect.iscoroutine(close_result) or inspect.isawaitable(
+                        close_result
+                    ):
+                        await close_result
+                    logger.info(f"Cleaned up provider during reinitialization: {name}")
+            except Exception as e:
+                logger.error(
+                    f"Error cleaning up provider {name} during reinitialization: {e}"
+                )
+                # Continue with cleanup of other providers
 
     def register_provider(self, name: str, provider: BaseProvider) -> None:
         """Register a provider.

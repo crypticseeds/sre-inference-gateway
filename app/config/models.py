@@ -1,7 +1,7 @@
 """Configuration models using Pydantic."""
 
 from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ProviderConfig(BaseModel):
@@ -68,6 +68,52 @@ class MetricsConfig(BaseModel):
     port: int = Field(default=9090, ge=1, le=65535, description="Metrics server port")
 
 
+class CircuitBreakerConfig(BaseModel):
+    """Circuit breaker configuration."""
+
+    failure_threshold: int = Field(
+        default=5, ge=1, description="Number of failures before opening circuit"
+    )
+    recovery_timeout: float = Field(
+        default=60.0, gt=0, description="Time in seconds before attempting recovery"
+    )
+    expected_exception: str = Field(
+        default="Exception", description="Exception type to trigger circuit breaker"
+    )
+
+
+class RetryConfig(BaseModel):
+    """Retry configuration."""
+
+    max_attempts: int = Field(default=3, ge=1, description="Maximum retry attempts")
+    min_wait: float = Field(
+        default=1.0, gt=0, description="Minimum wait time between retries in seconds"
+    )
+    max_wait: float = Field(
+        default=10.0, gt=0, description="Maximum wait time between retries in seconds"
+    )
+    exponential_base: float = Field(
+        default=2.0, gt=1, description="Exponential backoff base multiplier"
+    )
+    jitter: bool = Field(default=True, description="Add random jitter to wait times")
+
+    @model_validator(mode="after")
+    def validate_wait_bounds(self):
+        """Validate that min_wait <= max_wait."""
+        if self.min_wait > self.max_wait:
+            raise ValueError(
+                f"min_wait ({self.min_wait}) must be less than or equal to max_wait ({self.max_wait})"
+            )
+        return self
+
+
+class ResilienceConfig(BaseModel):
+    """Resilience patterns configuration."""
+
+    circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+    retry: RetryConfig = Field(default_factory=RetryConfig)
+
+
 class GatewayConfig(BaseModel):
     """Main gateway configuration."""
 
@@ -83,6 +129,7 @@ class GatewayConfig(BaseModel):
     health: HealthConfig = Field(default_factory=HealthConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     metrics: MetricsConfig = Field(default_factory=MetricsConfig)
+    resilience: ResilienceConfig = Field(default_factory=ResilienceConfig)
 
     # Request processing
     max_request_size: int = Field(

@@ -14,7 +14,7 @@ from app.providers.base import (
 class MockOpenAIAdapter(BaseProvider):
     """Mock OpenAI adapter for testing."""
 
-    async def chat_completion(
+    async def _chat_completion_impl(
         self, request: ChatCompletionRequest, request_id: str
     ) -> ChatCompletionResponse:
         """Mock chat completion response."""
@@ -38,7 +38,7 @@ class MockOpenAIAdapter(BaseProvider):
             usage={"prompt_tokens": 10, "completion_tokens": 15, "total_tokens": 25},
         )
 
-    async def health_check(self) -> ProviderHealth:
+    async def _health_check_impl(self) -> ProviderHealth:
         """Mock health check."""
         return ProviderHealth(name=self.name, healthy=True, latency_ms=100.0)
 
@@ -46,7 +46,7 @@ class MockOpenAIAdapter(BaseProvider):
 class MockVLLMAdapter(BaseProvider):
     """Mock vLLM adapter for testing."""
 
-    async def chat_completion(
+    async def _chat_completion_impl(
         self, request: ChatCompletionRequest, request_id: str
     ) -> ChatCompletionResponse:
         """Mock chat completion response."""
@@ -70,6 +70,6 @@ class MockVLLMAdapter(BaseProvider):
             usage={"prompt_tokens": 12, "completion_tokens": 18, "total_tokens": 30},
         )
 
-    async def health_check(self) -> ProviderHealth:
+    async def _health_check_impl(self) -> ProviderHealth:
         """Mock health check."""
         return ProviderHealth(name=self.name, healthy=True, latency_ms=200.0)
