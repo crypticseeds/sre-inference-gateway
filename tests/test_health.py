@@ -29,7 +29,7 @@ def mock_gateway_config():
                 type="mock",
                 weight=0.6,
                 enabled=True,
-                health_check_url="http://localhost:8001/health",
+                health_check_url="http://localhost:8080/health",
             ),
             ProviderConfig(
                 name="test_provider_2",

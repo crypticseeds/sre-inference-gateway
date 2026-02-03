@@ -48,14 +48,14 @@ spec:
       - name: vllm
         image: vllm/vllm-openai:v0.6.0
         ports:
-        - containerPort: 8001
+        - containerPort: 8080
           name: http
           protocol: TCP
         env:
         - name: VLLM_HOST
           value: "0.0.0.0"
         - name: VLLM_PORT
-          value: "8001"
+          value: "8080"
         envFrom:
         - configMapRef:
             name: vllm-config
@@ -85,7 +85,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8001
+            port: 8080
           initialDelaySeconds: 120
           periodSeconds: 30
           timeoutSeconds: 10
@@ -93,7 +93,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: 8001
+            port: 8080
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
@@ -120,8 +120,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 8001
-    targetPort: 8001
+  - port: 8080
+    targetPort: 8080
     protocol: TCP
     name: http
   selector:
