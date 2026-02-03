@@ -9,7 +9,7 @@ OpenAI-compatible API gateway with provider abstraction, built with Python 3.13+
 - **Weighted Routing**: Configurable load balancing between providers
 - **Deterministic Pinning**: Route requests to specific providers via headers
 - **Request Tracing**: End-to-end request ID propagation with OpenTelemetry
-- **Health Checks**: Operational readiness monitoring
+- **Health Checks**: Operational readiness monitoring via gateway (no redundant Docker health checks)
 - **Observability**: Prometheus metrics and distributed tracing
 
 ## Quick Start

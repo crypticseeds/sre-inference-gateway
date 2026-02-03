@@ -56,6 +56,7 @@ services:
 
   # vLLM Inference Service
   # Choose ONE configuration below by uncommenting the desired option
+  # Note: Health monitoring is handled by the gateway, not Docker health checks
   
   # Option 1: GPU-accelerated vLLM (recommended for production)
   # Uncomment this section for NVIDIA GPU acceleration
