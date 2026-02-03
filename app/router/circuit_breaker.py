@@ -75,6 +75,7 @@ class CircuitBreaker:
         self.failure_count = 0
         self.last_failure_time: Optional[float] = None
         self._lock = asyncio.Lock()
+        self._half_open_in_flight = False  # Flag to prevent concurrent HALF_OPEN probes
 
         # Initialize metrics
         circuit_breaker_state_gauge.labels(provider=provider_name).set(self.state.value)
@@ -110,6 +111,7 @@ class CircuitBreaker:
             if self.state == CircuitBreakerState.OPEN:
                 if self._should_attempt_reset():
                     self.state = CircuitBreakerState.HALF_OPEN
+                    self._half_open_in_flight = True  # Set in-flight flag
                     circuit_breaker_state_gauge.labels(provider=self.provider_name).set(
                         self.state.value
                     )
@@ -123,6 +125,13 @@ class CircuitBreaker:
                         "failing fast"
                     )
                     raise CircuitBreakerOpenException(self.provider_name)
+            elif self.state == CircuitBreakerState.HALF_OPEN and self._half_open_in_flight:
+                # Reject concurrent probes while one is already in flight
+                logger.warning(
+                    f"Circuit breaker for {self.provider_name} is HALF_OPEN "
+                    "with probe in flight, rejecting concurrent request"
+                )
+                raise CircuitBreakerOpenException(self.provider_name)
 
         # Execute function outside of lock to avoid blocking other calls
         try:
@@ -148,10 +157,11 @@ class CircuitBreaker:
         circuit_breaker_successes_total.labels(provider=self.provider_name).inc()
 
         if self.state == CircuitBreakerState.HALF_OPEN:
-            # Recovery successful - close circuit
+            # Recovery successful - close circuit and clear in-flight flag
             self.state = CircuitBreakerState.CLOSED
             self.failure_count = 0
             self.last_failure_time = None
+            self._half_open_in_flight = False  # Clear in-flight flag
             circuit_breaker_state_gauge.labels(provider=self.provider_name).set(
                 self.state.value
             )
@@ -173,6 +183,10 @@ class CircuitBreaker:
 
         self.failure_count += 1
         self.last_failure_time = time.time()
+
+        # Clear in-flight flag on failure (allows subsequent attempts)
+        if self.state == CircuitBreakerState.HALF_OPEN:
+            self._half_open_in_flight = False
 
         logger.warning(
             f"Circuit breaker for {self.provider_name} recorded failure "
@@ -269,7 +283,24 @@ class CircuitBreakerRegistry:
             Circuit breaker instance
         """
         async with self._lock:
-            if provider_name not in self._circuit_breakers:
+            if provider_name in self._circuit_breakers:
+                existing_breaker = self._circuit_breakers[provider_name]
+                # Compare configs to detect changes
+                if existing_breaker.config != config:
+                    logger.info(
+                        f"Circuit breaker config changed for provider {provider_name}. "
+                        f"Recreating breaker with new configuration."
+                    )
+                    # Replace with new circuit breaker
+                    self._circuit_breakers[provider_name] = CircuitBreaker(
+                        provider_name, config
+                    )
+                    logger.info(
+                        f"Recreated circuit breaker for provider: {provider_name}"
+                    )
+
+                return self._circuit_breakers[provider_name]
+            else:
                 self._circuit_breakers[provider_name] = CircuitBreaker(
                     provider_name, config
                 )
@@ -277,14 +308,20 @@ class CircuitBreakerRegistry:
 
             return self._circuit_breakers[provider_name]
 
-    def get_all_states(self) -> Dict[str, Dict[str, Any]]:
+    async def get_all_states(self) -> Dict[str, Dict[str, Any]]:
         """Get state information for all circuit breakers.
 
         Returns:
             Dictionary mapping provider names to state information
         """
+        async with self._lock:
+            # Take a snapshot of circuit breakers to avoid RuntimeError
+            # if the dict is mutated during iteration
+            circuit_breakers_snapshot = list(self._circuit_breakers.items())
+        
+        # Call get_state_info() outside the lock to avoid blocking
         return {
-            name: cb.get_state_info() for name, cb in self._circuit_breakers.items()
+            name: cb.get_state_info() for name, cb in circuit_breakers_snapshot
         }
 
 
