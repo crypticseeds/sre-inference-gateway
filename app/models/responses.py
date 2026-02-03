@@ -20,6 +20,13 @@ class ChatCompletionUsage(BaseModel):
     prompt_tokens: int = Field(..., description="Tokens in the prompt")
     completion_tokens: int = Field(..., description="Tokens in the completion")
     total_tokens: int = Field(..., description="Total tokens used")
+    # Optional detailed token information (OpenAI API v1.0+)
+    prompt_tokens_details: Optional[Dict[str, Any]] = Field(
+        None, description="Detailed prompt token breakdown"
+    )
+    completion_tokens_details: Optional[Dict[str, Any]] = Field(
+        None, description="Detailed completion token breakdown"
+    )
 
 
 class ChatCompletionResponse(BaseModel):

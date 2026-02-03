@@ -130,154 +130,156 @@ class OpenAIAdapter(BaseProvider):
         """
         start_time = time.time()
 
-        try:
-            # Prepare request payload
-            payload = {
-                "model": request.model,
-                "messages": request.messages,
-                "temperature": request.temperature,
-                "max_tokens": request.max_tokens,
-                "top_p": request.top_p,
-                "frequency_penalty": request.frequency_penalty,
-                "presence_penalty": request.presence_penalty,
-                "stream": request.stream,
-            }
+        # Prepare request payload
+        payload = {
+            "model": request.model,
+            "messages": request.messages,
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+            "top_p": request.top_p,
+            "frequency_penalty": request.frequency_penalty,
+            "presence_penalty": request.presence_penalty,
+            "stream": request.stream,
+        }
 
-            # Remove None values
-            payload = {k: v for k, v in payload.items() if v is not None}
+        # Remove None values
+        payload = {k: v for k, v in payload.items() if v is not None}
 
-            if request.user:
-                payload["user"] = request.user
+        if request.user:
+            payload["user"] = request.user
 
-            # Make API request with retries
-            for attempt in range(self.max_retries):
-                try:
-                    logger.debug(
-                        "OpenAI request attempt %d/%d: request_id=%s, model=%s",
-                        attempt + 1,
-                        self.max_retries,
-                        request_id,
-                        request.model,
-                    )
+        # Make API request with retries
+        for attempt in range(self.max_retries):
+            try:
+                logger.debug(
+                    "OpenAI request attempt %d/%d: request_id=%s, model=%s",
+                    attempt + 1,
+                    self.max_retries,
+                    request_id,
+                    request.model,
+                )
 
-                    response = await self.client.post(
-                        f"{self.base_url}/chat/completions",
-                        json=payload,
-                    )
-                    response.raise_for_status()
+                response = await self.client.post(
+                    f"{self.base_url}/chat/completions",
+                    json=payload,
+                )
+                response.raise_for_status()
 
-                    # Parse response
-                    data = response.json()
+                # Parse response
+                data = response.json()
 
-                    elapsed_ms = (time.time() - start_time) * 1000
-                    logger.info(
-                        "OpenAI request successful: request_id=%s, elapsed=%.2fms",
-                        request_id,
-                        elapsed_ms,
-                    )
+                elapsed_ms = (time.time() - start_time) * 1000
+                logger.info(
+                    "OpenAI request successful: request_id=%s, elapsed=%.2fms",
+                    request_id,
+                    elapsed_ms,
+                )
 
-                    # Convert to our response model
-                    return ChatCompletionResponse(
-                        id=data.get("id", request_id),
-                        created=data.get("created", int(time.time())),
-                        model=data.get("model", request.model),
-                        choices=data.get("choices", []),
-                        usage=data.get("usage", {}),
-                    )
+                # Convert to our response model
+                # Base provider expects usage as a dictionary
+                usage_data = data.get("usage", {})
+                usage_dict = {
+                    "prompt_tokens": usage_data.get("prompt_tokens", 0),
+                    "completion_tokens": usage_data.get("completion_tokens", 0),
+                    "total_tokens": usage_data.get("total_tokens", 0),
+                }
+                return ChatCompletionResponse(
+                    id=data.get("id", request_id),
+                    created=data.get("created", int(time.time())),
+                    model=data.get("model", request.model),
+                    choices=data.get("choices", []),
+                    usage=usage_dict,
+                )
 
-                except httpx.HTTPStatusError as e:
-                    status_code = e.response.status_code
+            except httpx.HTTPStatusError as e:
+                status_code = e.response.status_code
 
-                    logger.warning(
-                        "OpenAI API error (attempt %d/%d): %d - %s",
-                        attempt + 1,
-                        self.max_retries,
-                        status_code,
-                        e.response.text,
-                    )
+                logger.warning(
+                    "OpenAI API error (attempt %d/%d): %d - %s",
+                    attempt + 1,
+                    self.max_retries,
+                    status_code,
+                    e.response.text,
+                )
 
-                    # Don't retry on client errors (4xx) except rate limits
-                    if 400 <= status_code < 500 and status_code != 429:
-                        if status_code == 401:
-                            raise HTTPException(
-                                status_code=500,
-                                detail="OpenAI API authentication failed",
-                            ) from e
-                        if status_code == 400:
-                            # FIX: Guard against malformed JSON responses
-                            try:
-                                error_data = e.response.json()
-                                error_msg = error_data.get("error", {}).get(
-                                    "message", "Unknown error"
-                                )
-                            except (ValueError, KeyError):
-                                # Fallback to text if JSON parsing fails
-                                error_msg = e.response.text or "Invalid request format"
-                            raise HTTPException(
-                                status_code=400, detail=f"Invalid request: {error_msg}"
-                            ) from e
+                # Don't retry on client errors (4xx) except rate limits
+                if 400 <= status_code < 500 and status_code != 429:
+                    if status_code == 401:
                         raise HTTPException(
-                            status_code=status_code,
-                            detail=f"OpenAI API error: {e.response.text}",
+                            status_code=500,
+                            detail="OpenAI API authentication failed",
                         ) from e
-
-                    # Exponential backoff for retries
-                    if attempt < self.max_retries - 1:
-                        backoff_time = 2**attempt
-                        logger.info("Retrying after %ds backoff", backoff_time)
-                        await asyncio.sleep(backoff_time)
-                        continue
-
-                    # Last attempt failed
-                    if status_code == 429:
+                    if status_code == 400:
+                        # FIX: Guard against malformed JSON responses
+                        try:
+                            error_data = e.response.json()
+                            error_msg = error_data.get("error", {}).get(
+                                "message", "Unknown error"
+                            )
+                        except (ValueError, KeyError):
+                            # Fallback to text if JSON parsing fails
+                            error_msg = e.response.text or "Invalid request format"
                         raise HTTPException(
-                            status_code=429, detail="OpenAI API rate limit exceeded"
+                            status_code=400, detail=f"Invalid request: {error_msg}"
                         ) from e
                     raise HTTPException(
-                        status_code=502, detail="OpenAI API server error"
+                        status_code=status_code,
+                        detail=f"OpenAI API error: {e.response.text}",
                     ) from e
 
-                except httpx.TimeoutException as timeout_exc:
-                    logger.warning(
-                        "OpenAI API timeout (attempt %d/%d)",
-                        attempt + 1,
-                        self.max_retries,
-                    )
+                # Exponential backoff for retries
+                if attempt < self.max_retries - 1:
+                    backoff_time = 2**attempt
+                    logger.info("Retrying after %ds backoff", backoff_time)
+                    await asyncio.sleep(backoff_time)
+                    continue
 
-                    if attempt < self.max_retries - 1:
-                        await asyncio.sleep(2**attempt)
-                        continue
+                # Last attempt failed
+                if status_code == 429:
                     raise HTTPException(
-                        status_code=504, detail="OpenAI API request timeout"
-                    ) from timeout_exc
+                        status_code=429, detail="OpenAI API rate limit exceeded"
+                    ) from e
+                raise HTTPException(
+                    status_code=502, detail="OpenAI API server error"
+                ) from e
 
-                except httpx.RequestError as req_err:
-                    elapsed_ms = (time.time() - start_time) * 1000
-                    logger.error(
-                        "OpenAI request error (attempt %d/%d): %s. "
-                        "Request ID: %s, Elapsed: %.2fms",
-                        attempt + 1,
-                        self.max_retries,
-                        req_err,
-                        request_id,
-                        elapsed_ms,
-                    )
+            except httpx.TimeoutException as timeout_exc:
+                logger.warning(
+                    "OpenAI API timeout (attempt %d/%d)",
+                    attempt + 1,
+                    self.max_retries,
+                )
 
-                    if attempt < self.max_retries - 1:
-                        await asyncio.sleep(2**attempt)
-                        continue
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Failed to connect to OpenAI API: {str(req_err)}",
-                    ) from req_err
+                if attempt < self.max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+                raise HTTPException(
+                    status_code=504, detail="OpenAI API request timeout"
+                ) from timeout_exc
 
-            # Note: This point is unreachable - the loop always returns on success
-            # or raises an exception on final failure. This is intentional as all
-            # error handling and logging is done inside the loop's exception handlers.
+            except httpx.RequestError as req_err:
+                elapsed_ms = (time.time() - start_time) * 1000
+                logger.error(
+                    "OpenAI request error (attempt %d/%d): %s. "
+                    "Request ID: %s, Elapsed: %.2fms",
+                    attempt + 1,
+                    self.max_retries,
+                    req_err,
+                    request_id,
+                    elapsed_ms,
+                )
 
-        except HTTPException:
-            # Re-raise HTTPExceptions as-is
-            raise
+                if attempt < self.max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Failed to connect to OpenAI API: {str(req_err)}",
+                ) from req_err
+
+        # Note: This point is unreachable - the loop always returns on success
+        # or raises an exception on final failure. This is intentional as all
+        # error handling and logging is done inside the loop's exception handlers.
 
     async def health_check(self) -> ProviderHealth:
         """Check OpenAI API health and measure latency.
