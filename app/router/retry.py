@@ -71,7 +71,10 @@ def classify_http_exception(exception: Exception) -> bool:
         True if exception is retryable, False otherwise
     """
     if isinstance(exception, HTTPException):
-        # 4xx errors are client errors and should not be retried
+        # Special cases: 429 (Too Many Requests) and 408 (Request Timeout) are retryable
+        if exception.status_code in (429, 408):
+            return True
+        # Other 4xx errors are client errors and should not be retried
         if 400 <= exception.status_code < 500:
             return False
         # 5xx errors are server errors and can be retried
@@ -119,7 +122,7 @@ class RetryHandler:
         # Create wait strategy with jitter
         if config.jitter:
             wait_strategy = wait_exponential(
-                multiplier=config.exponential_base,
+                exp_base=config.exponential_base,
                 min=config.min_wait,
                 max=config.max_wait,
             )
