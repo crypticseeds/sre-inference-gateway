@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set
 from app.providers.base import BaseProvider
 from app.providers.registry import provider_registry
 from app.router.circuit_breaker import circuit_breaker_registry
+from app.router.load_shedding import load_shedder
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class RequestRouter:
                 provider
                 and provider_priority not in excluded_providers
                 and circuit_breaker_registry.allows_request(provider_priority)
+                and load_shedder.provider_has_capacity(provider_priority)
             ):
                 logger.info(f"Selected provider via priority: {provider_priority}")
                 return provider
@@ -81,6 +83,8 @@ class RequestRouter:
                     "Skipping provider with open circuit breaker: %s",
                     provider_priority,
                 )
+            elif provider and not load_shedder.provider_has_capacity(provider_priority):
+                logger.info("Skipping saturated provider: %s", provider_priority)
             elif not provider:
                 logger.warning(f"Priority provider not found: {provider_priority}")
 
@@ -92,13 +96,20 @@ class RequestRouter:
             if provider_name in excluded_providers:
                 continue
             provider = provider_registry.get_provider(provider_name)
-            if provider and circuit_breaker_registry.allows_request(provider_name):
+            if (
+                provider
+                and circuit_breaker_registry.allows_request(provider_name)
+                and load_shedder.provider_has_capacity(provider_name)
+            ):
                 available_providers.append(provider)
                 weights.append(weight)
             elif provider:
-                logger.info(
-                    "Skipping provider with open circuit breaker: %s", provider_name
-                )
+                if not circuit_breaker_registry.allows_request(provider_name):
+                    logger.info(
+                        "Skipping provider with open circuit breaker: %s", provider_name
+                    )
+                else:
+                    logger.info("Skipping saturated provider: %s", provider_name)
 
         if not available_providers:
             logger.error("No available providers for routing")
@@ -127,6 +138,16 @@ class RequestRouter:
             name
             for name in self.provider_weights.keys()
             if provider_registry.get_provider(name) is not None
+        ]
+
+    def get_saturated_providers(self) -> List[str]:
+        """Get providers eligible except for their concurrency capacity."""
+        return [
+            name
+            for name in self.provider_weights
+            if provider_registry.get_provider(name) is not None
+            and circuit_breaker_registry.allows_request(name)
+            and not load_shedder.provider_has_capacity(name)
         ]
 
     def update_weights(self, new_weights: Dict[str, float]) -> None:

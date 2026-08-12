@@ -61,6 +61,12 @@ IN_FLIGHT_REQUESTS = Gauge(
     ["provider"],
 )
 
+SHED_REQUESTS = Counter(
+    "gateway_shed_requests_total",
+    "Total requests rejected by concurrency admission",
+    ["scope", "provider"],
+)
+
 PROVIDER_HEALTH = Counter(
     "gateway_provider_health_checks_total",
     "Total number of provider health checks",
@@ -107,6 +113,11 @@ def record_request_duration(provider: str, stream: bool, started_at: float) -> N
 def record_failure(provider: str, error_type: str) -> None:
     """Record a provider request failure by lifecycle stage."""
     FAILURE_COUNT.labels(provider=provider, error_type=error_type).inc()
+
+
+def record_shed(scope: str, provider: str = "") -> None:
+    """Record a request rejected by gateway or provider admission."""
+    SHED_REQUESTS.labels(scope=scope, provider=provider).inc()
 
 
 def record_usage(provider: str, model: str, usage: Any) -> None:
@@ -174,14 +185,19 @@ def _stream_tail_result(tail: bytes) -> tuple[Any, bool]:
 
 
 async def instrument_stream(
-    stream: AsyncIterator[bytes], provider: str, model: str, started_at: float
+    stream: AsyncIterator[bytes],
+    provider: str,
+    model: str,
+    started_at: float,
+    account_in_flight: bool = True,
 ) -> AsyncIterator[bytes]:
     """Pass through bytes and account from a bounded tail after streaming ends."""
     first_byte_recorded = False
     tail = b""
     exhausted = False
     close_succeeded = False
-    IN_FLIGHT_REQUESTS.labels(provider=provider).inc()
+    if account_in_flight:
+        IN_FLIGHT_REQUESTS.labels(provider=provider).inc()
     try:
         async for chunk in stream:
             if not first_byte_recorded:
@@ -204,7 +220,8 @@ async def instrument_stream(
                 record_usage(provider, model, usage)
             record_request(provider, model, True, 200)
             record_request_duration(provider, True, started_at)
-            IN_FLIGHT_REQUESTS.labels(provider=provider).dec()
+            if account_in_flight:
+                IN_FLIGHT_REQUESTS.labels(provider=provider).dec()
 
 
 def record_provider_health(provider: str, healthy: bool) -> None:

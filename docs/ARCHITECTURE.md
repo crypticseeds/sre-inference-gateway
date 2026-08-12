@@ -19,7 +19,8 @@ The application exposes:
 A small HTTP middleware copies the request ID used by the completion dependency
 to the `X-Request-ID` response header. FastAPI OpenTelemetry instrumentation is
 also installed. There is no authentication, quota, rate-limit, content-filter,
-accounting, backpressure, or general chaos-injection layer.
+accounting, per-client rate-limit, request queue, or general chaos-injection
+layer. Configured concurrency admission provides load shedding without queueing.
 
 ## Providers and registry
 
@@ -156,6 +157,7 @@ Metrics are exposed on the gateway's HTTP port.
 | Time to first byte | `gateway_stream_first_byte_seconds` | `provider` | Time from attempt start to first forwarded chunk. |
 | Errors | `gateway_failures_total` | `provider`, `error_type` | `client_4xx`, `establishment`, or `mid_stream_truncation`. |
 | Saturation | `gateway_in_flight_requests` | `provider` | Active provider work, including stream iteration. |
+| Load shedding | `gateway_shed_requests_total` | `scope`, `provider` | Requests rejected by global or provider concurrency admission. |
 | Breaker state | `circuit_breaker_state` | `provider` | `0` CLOSED, `1` OPEN, `2` HALF_OPEN. |
 
 Streaming attempts are recorded as 2xx after establishment even if the iterator

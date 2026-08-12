@@ -19,6 +19,7 @@ from app.config.settings import (
 from app.observability.metrics import setup_metrics
 from app.observability.tracing import setup_tracing
 from app.providers.registry import provider_registry
+from app.router.load_shedding import load_shedder
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize providers from configuration
     try:
         gateway_config = get_gateway_config()
+        load_shedder.configure(gateway_config.load_shedding)
         await provider_registry.initialize_from_config(gateway_config.providers)
         logger.info(f"Initialized {len(provider_registry.list_providers())} providers")
     except Exception as e:

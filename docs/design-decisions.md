@@ -83,3 +83,15 @@ credentials, and local Redis and Grafana passwords have development defaults.
 
 This keeps Doppler available for contributors who use it without making a
 secret manager a prerequisite for mock requests, tests, or the failover drill.
+
+## Shed instead of queue
+
+The gateway rejects excess concurrency immediately instead of placing requests
+in an internal queue. Queueing under overload consumes resources, destroys tail
+latency, and hides provider saturation. A fast `503` with `Retry-After: 1` keeps
+the overload signal visible and lets the client decide whether and when to retry.
+
+Provider saturation is an eligibility condition during routing, like an open
+circuit breaker. This preserves healthy-provider fallback without admitting more
+work to the saturated provider. Streaming requests retain their global and
+provider admission slots for the complete downstream stream lifetime.
