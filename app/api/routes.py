@@ -9,12 +9,13 @@ from app.api.completions import router as completions_router
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+metrics_router = APIRouter()
 
 # Include completions routes
 router.include_router(completions_router)
 
 
-@router.get("/metrics")
+@metrics_router.get("/metrics")
 async def metrics() -> Response:
     """Prometheus metrics endpoint.
 

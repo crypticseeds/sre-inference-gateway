@@ -8,6 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.observability.metrics import FAILURE_COUNT
+from app.observability.metrics import IN_FLIGHT_REQUESTS, instrument_stream
 from app.providers.base import ChatCompletionRequest
 from app.providers.mock import MockOpenAIAdapter
 from app.providers.openai import OpenAIAdapter
@@ -127,15 +129,68 @@ async def test_midstream_failure_closes_cleanly_without_done():
             yield first_event
             raise httpx.ReadError("provider disconnected")
 
+    provider = "truncation_test_provider"
+    failures = FAILURE_COUNT.labels(
+        provider=provider, error_type="mid_stream_truncation"
+    )
+    before = failures._value.get()
     response = httpx.Response(200, stream=FailingStream())
     close = AsyncMock(wraps=response.aclose)
     response.aclose = close
 
-    chunks = [chunk async for chunk in stream_sse_response(response, "test")]
+    chunks = [chunk async for chunk in stream_sse_response(response, provider)]
 
     assert chunks == [first_event]
     assert b"[DONE]" not in b"".join(chunks)
     close.assert_awaited_once()
+    assert failures._value.get() == before + 1
+
+
+@pytest.mark.asyncio
+async def test_metrics_stream_wrapper_closes_source_on_early_disconnect():
+    """Closing the response iterator releases its source and in-flight gauge."""
+    provider = "disconnect_test_provider"
+    closed = False
+
+    async def source():
+        nonlocal closed
+        try:
+            yield b"data: first\n\n"
+            yield b"data: second\n\n"
+        finally:
+            closed = True
+
+    stream = instrument_stream(source(), provider, "test-model", 0)
+    assert await anext(stream) == b"data: first\n\n"
+    assert IN_FLIGHT_REQUESTS.labels(provider=provider)._value.get() == 1
+
+    await stream.aclose()
+
+    assert closed
+    assert IN_FLIGHT_REQUESTS.labels(provider=provider)._value.get() == 0
+
+
+@pytest.mark.asyncio
+async def test_metrics_stream_wrapper_cleans_up_when_source_close_fails():
+    """A source close error cannot leak the in-flight gauge."""
+    provider = "close_failure_test_provider"
+
+    class FailingCloseStream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+        async def aclose(self):
+            raise RuntimeError("close failed")
+
+    stream = instrument_stream(FailingCloseStream(), provider, "test-model", 0)
+
+    with pytest.raises(RuntimeError, match="close failed"):
+        await anext(stream)
+
+    assert IN_FLIGHT_REQUESTS.labels(provider=provider)._value.get() == 0
 
 
 @pytest.mark.asyncio

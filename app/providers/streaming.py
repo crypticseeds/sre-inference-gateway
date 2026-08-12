@@ -5,6 +5,8 @@ from collections.abc import AsyncIterator
 
 import httpx
 
+from app.observability.metrics import record_failure
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,5 +22,6 @@ async def stream_sse_response(
         # HTTP status can no longer change. Close cleanly and let missing [DONE]
         # signal the truncated stream to OpenAI-compatible clients.
         logger.exception("Provider %s stream ended unexpectedly", provider_name)
+        record_failure(provider_name, "mid_stream_truncation")
     finally:
         await response.aclose()
