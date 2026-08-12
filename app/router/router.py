@@ -2,10 +2,11 @@
 
 import logging
 import random
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from app.providers.base import BaseProvider
 from app.providers.registry import provider_registry
+from app.router.circuit_breaker import circuit_breaker_registry
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,9 @@ class RequestRouter:
         logger.info(f"Normalized provider weights: {self.provider_weights}")
 
     def select_provider(
-        self, provider_priority: Optional[str] = None
+        self,
+        provider_priority: Optional[str] = None,
+        excluded_providers: Optional[Set[str]] = None,
     ) -> Optional[BaseProvider]:
         """Select a provider based on weights or deterministic pinning.
 
@@ -57,13 +60,28 @@ class RequestRouter:
         Returns:
             Selected provider instance or None if not available
         """
+        excluded_providers = excluded_providers or set()
+
         # Deterministic routing via header
         if provider_priority:
             provider = provider_registry.get_provider(provider_priority)
-            if provider:
+            if (
+                provider
+                and provider_priority not in excluded_providers
+                and circuit_breaker_registry.allows_request(provider_priority)
+            ):
                 logger.info(f"Selected provider via priority: {provider_priority}")
                 return provider
-            else:
+            if provider_priority in excluded_providers:
+                logger.info("Skipping already attempted provider: %s", provider_priority)
+            elif provider and not circuit_breaker_registry.allows_request(
+                provider_priority
+            ):
+                logger.info(
+                    "Skipping provider with open circuit breaker: %s",
+                    provider_priority,
+                )
+            elif not provider:
                 logger.warning(f"Priority provider not found: {provider_priority}")
 
         # Weighted random selection
@@ -71,10 +89,16 @@ class RequestRouter:
         weights = []
 
         for provider_name, weight in self.provider_weights.items():
+            if provider_name in excluded_providers:
+                continue
             provider = provider_registry.get_provider(provider_name)
-            if provider:
+            if provider and circuit_breaker_registry.allows_request(provider_name):
                 available_providers.append(provider)
                 weights.append(weight)
+            elif provider:
+                logger.info(
+                    "Skipping provider with open circuit breaker: %s", provider_name
+                )
 
         if not available_providers:
             logger.error("No available providers for routing")

@@ -113,9 +113,10 @@ class CircuitBreaker:
                     circuit_breaker_state_gauge.labels(provider=self.provider_name).set(
                         self.state.value
                     )
-                    logger.info(
-                        f"Circuit breaker for {self.provider_name} "
-                        "transitioning to HALF_OPEN"
+                    logger.warning(
+                        "event=circuit_breaker_transition provider=%s "
+                        "from_state=open to_state=half_open",
+                        self.provider_name,
                     )
                 else:
                     logger.warning(
@@ -123,6 +124,12 @@ class CircuitBreaker:
                         "failing fast"
                     )
                     raise CircuitBreakerOpenException(self.provider_name)
+            elif self.state == CircuitBreakerState.HALF_OPEN:
+                logger.warning(
+                    "Circuit breaker for %s already has a half-open probe",
+                    self.provider_name,
+                )
+                raise CircuitBreakerOpenException(self.provider_name)
 
         # Execute function outside of lock to avoid blocking other calls
         try:
@@ -155,9 +162,10 @@ class CircuitBreaker:
             circuit_breaker_state_gauge.labels(provider=self.provider_name).set(
                 self.state.value
             )
-            logger.info(
-                f"Circuit breaker for {self.provider_name} "
-                "recovered and transitioned to CLOSED"
+            logger.warning(
+                "event=circuit_breaker_transition provider=%s "
+                "from_state=half_open to_state=closed",
+                self.provider_name,
             )
         elif self.state == CircuitBreakerState.CLOSED:
             # Reset failure count on success
@@ -184,13 +192,17 @@ class CircuitBreaker:
             self.state in [CircuitBreakerState.CLOSED, CircuitBreakerState.HALF_OPEN]
             and self.failure_count >= self.config.failure_threshold
         ):
+            previous_state = self.state
             self.state = CircuitBreakerState.OPEN
             circuit_breaker_state_gauge.labels(provider=self.provider_name).set(
                 self.state.value
             )
             logger.error(
-                f"Circuit breaker for {self.provider_name} "
-                f"OPENED after {self.failure_count} failures"
+                "event=circuit_breaker_transition provider=%s "
+                "from_state=%s to_state=open failure_count=%s",
+                self.provider_name,
+                previous_state.name.lower(),
+                self.failure_count,
             )
 
     def _should_attempt_reset(self) -> bool:
@@ -231,6 +243,11 @@ class CircuitBreaker:
             True if circuit is half-open
         """
         return self.state == CircuitBreakerState.HALF_OPEN
+
+    @property
+    def allows_request(self) -> bool:
+        """Return whether routing may send a request to this breaker."""
+        return not self.is_open or self._should_attempt_reset()
 
     def get_state_info(self) -> Dict[str, Any]:
         """Get circuit breaker state information.
@@ -286,6 +303,11 @@ class CircuitBreakerRegistry:
         return {
             name: cb.get_state_info() for name, cb in self._circuit_breakers.items()
         }
+
+    def allows_request(self, provider_name: str) -> bool:
+        """Return whether a provider has no breaker or can receive a request."""
+        circuit_breaker = self._circuit_breakers.get(provider_name)
+        return circuit_breaker is None or circuit_breaker.allows_request
 
 
 # Global circuit breaker registry

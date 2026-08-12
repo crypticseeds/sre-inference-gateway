@@ -16,10 +16,25 @@ from app.providers.base import (
 class MockOpenAIAdapter(BaseProvider):
     """Mock OpenAI adapter for testing."""
 
+    def __init__(self, name: str, config: dict):
+        """Initialize a controllable mock provider."""
+        super().__init__(name, config)
+        self.failed = False
+
+    def set_failed(self, failed: bool) -> None:
+        """Enable or disable runtime failure injection."""
+        self.failed = failed
+
+    def _raise_if_failed(self) -> None:
+        """Fail before response headers while failure injection is enabled."""
+        if self.failed:
+            raise ConnectionError(f"Mock provider {self.name} is failed")
+
     async def _chat_completion_impl(
         self, request: ChatCompletionRequest, request_id: str
     ) -> ChatCompletionResponse:
         """Mock chat completion response."""
+        self._raise_if_failed()
         # Simulate processing delay
         await asyncio.sleep(0.1)
 
@@ -42,18 +57,25 @@ class MockOpenAIAdapter(BaseProvider):
 
     async def _health_check_impl(self) -> ProviderHealth:
         """Mock health check."""
-        return ProviderHealth(name=self.name, healthy=True, latency_ms=100.0)
+        return ProviderHealth(
+            name=self.name,
+            healthy=not self.failed,
+            latency_ms=100.0,
+            error=f"Mock provider {self.name} is failed" if self.failed else None,
+        )
 
     async def _chat_completion_stream_impl(
         self, request: ChatCompletionRequest, request_id: str
     ) -> AsyncIterator[bytes]:
         """Create a deterministic OpenAI-compatible mock SSE stream."""
+        self._raise_if_failed()
         delay = float(self.config.get("stream_chunk_delay", 0.05))
         chunk_count = int(self.config.get("stream_content_chunks", 3))
         model = self.config.get("model") or request.model
         created = int(time.time())
+        provider_label = "vLLM" if "vllm" in self.name.lower() else "OpenAI"
         text = (
-            "Mock OpenAI response for: "
+            f"Mock {provider_label} response for: "
             f"{request.messages[-1].get('content', '') if request.messages else ''}"
         )
         chunk_count = min(chunk_count, len(text))
@@ -124,13 +146,14 @@ class MockOpenAIAdapter(BaseProvider):
         return generate()
 
 
-class MockVLLMAdapter(BaseProvider):
+class MockVLLMAdapter(MockOpenAIAdapter):
     """Mock vLLM adapter for testing."""
 
     async def _chat_completion_impl(
         self, request: ChatCompletionRequest, request_id: str
     ) -> ChatCompletionResponse:
         """Mock chat completion response."""
+        self._raise_if_failed()
         # Simulate processing delay
         await asyncio.sleep(0.2)
 
@@ -153,7 +176,12 @@ class MockVLLMAdapter(BaseProvider):
 
     async def _health_check_impl(self) -> ProviderHealth:
         """Mock health check."""
-        return ProviderHealth(name=self.name, healthy=True, latency_ms=200.0)
+        return ProviderHealth(
+            name=self.name,
+            healthy=not self.failed,
+            latency_ms=200.0,
+            error=f"Mock provider {self.name} is failed" if self.failed else None,
+        )
 
     async def _chat_completion_stream_impl(
         self, request: ChatCompletionRequest, request_id: str
