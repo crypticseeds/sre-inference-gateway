@@ -75,6 +75,15 @@ class MetricsConfig(BaseModel):
     port: int = Field(default=9090, ge=1, le=65535, description="Metrics server port")
 
 
+class ModelPricing(BaseModel):
+    """Per-million token prices for one model."""
+
+    input_per_1m: float = Field(..., ge=0, description="Input token price per million")
+    output_per_1m: float = Field(
+        ..., ge=0, description="Output token price per million"
+    )
+
+
 class CircuitBreakerConfig(BaseModel):
     """Circuit breaker configuration."""
 
@@ -136,6 +145,9 @@ class GatewayConfig(BaseModel):
     health: HealthConfig = Field(default_factory=HealthConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     metrics: MetricsConfig = Field(default_factory=MetricsConfig)
+    pricing: Dict[str, ModelPricing] = Field(
+        default_factory=dict, description="Per-model token pricing in USD"
+    )
     resilience: ResilienceConfig = Field(default_factory=ResilienceConfig)
 
     # Request processing

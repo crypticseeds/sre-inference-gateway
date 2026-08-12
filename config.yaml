@@ -69,6 +69,12 @@ metrics:
   enabled: true
   port: 9090
 
+# Per-model USD pricing. Cost is recorded only from provider-reported usage.
+pricing:
+  mock-model:
+    input_per_1m: 0.15
+    output_per_1m: 0.60
+
 # Request processing limits
 max_request_size: 1048576  # 1MB in bytes
 request_timeout: 35.0      # Request timeout in seconds (slightly larger than provider timeout to avoid races)

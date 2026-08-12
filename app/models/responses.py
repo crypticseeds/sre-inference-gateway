@@ -41,7 +41,9 @@ class ChatCompletionResponse(BaseModel):
     choices: List[ChatCompletionChoice] = Field(
         ..., description="List of completion choices"
     )
-    usage: ChatCompletionUsage = Field(..., description="Token usage information")
+    usage: Optional[ChatCompletionUsage] = Field(
+        None, description="Provider-reported token usage information"
+    )
 
 
 class ErrorDetail(BaseModel):

@@ -22,6 +22,7 @@ from app.observability.metrics import (
     record_failure,
     record_request,
     record_request_duration,
+    record_usage,
 )
 from app.router.router import RequestRouter
 
@@ -117,6 +118,7 @@ async def create_chat_completion(
                     )
 
                 response = await provider.chat_completion(base_request, request_id)
+                record_usage(provider.name, chat_request.model, response.usage)
                 record_request(provider.name, chat_request.model, False, 200)
                 record_request_duration(provider.name, False, started_at)
                 logger.info(f"Completed request {request_id} successfully")

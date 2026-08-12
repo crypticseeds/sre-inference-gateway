@@ -8,8 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.observability.metrics import FAILURE_COUNT
-from app.observability.metrics import IN_FLIGHT_REQUESTS, instrument_stream
+from app.observability.metrics import (
+    COST_USD,
+    FAILURE_COUNT,
+    IN_FLIGHT_REQUESTS,
+    TOKENS,
+    UNPRICED_REQUESTS,
+    instrument_stream,
+)
 from app.providers.base import ChatCompletionRequest
 from app.providers.mock import MockOpenAIAdapter
 from app.providers.openai import OpenAIAdapter
@@ -191,6 +197,66 @@ async def test_metrics_stream_wrapper_cleans_up_when_source_close_fails():
         await anext(stream)
 
     assert IN_FLIGHT_REQUESTS.labels(provider=provider)._value.get() == 0
+
+
+@pytest.mark.asyncio
+async def test_metrics_stream_records_usage_split_across_final_chunks():
+    """The bounded tail reconstructs final usage split at chunk boundaries."""
+    provider = "split_usage_test_provider"
+    model = "mock-model"
+    prompt = TOKENS.labels(provider=provider, model=model, type="prompt")
+    completion = TOKENS.labels(provider=provider, model=model, type="completion")
+    cost = COST_USD.labels(provider=provider, model=model)
+    before = (prompt._value.get(), completion._value.get(), cost._value.get())
+
+    async def source():
+        yield b"x" * 3000
+        yield b'\n\ndata: {"choices":[],"usa'
+        yield b'ge":{"prompt_tokens":10,"completion_tokens":15,"total_tokens":25}}\n'
+        yield b"\ndata: [DONE]\n\n"
+
+    assert b"".join([chunk async for chunk in instrument_stream(source(), provider, model, 0)])
+    assert prompt._value.get() == before[0] + 10
+    assert completion._value.get() == before[1] + 15
+    assert cost._value.get() == before[2] + 0.0000105
+
+
+@pytest.mark.asyncio
+async def test_metrics_stream_without_usage_records_unpriced():
+    """A completed stream without provider usage is explicitly unpriced."""
+    provider = "missing_stream_usage_test_provider"
+    model = "mock-model"
+    unpriced = UNPRICED_REQUESTS.labels(
+        provider=provider, model=model, reason="missing_usage"
+    )
+    before = unpriced._value.get()
+
+    async def source():
+        yield b'data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
+        yield b"data: [DONE]\n\n"
+
+    assert b"".join([chunk async for chunk in instrument_stream(source(), provider, model, 0)])
+    assert unpriced._value.get() == before + 1
+
+
+@pytest.mark.asyncio
+async def test_incomplete_stream_does_not_record_retained_usage():
+    """Usage retained before a truncated terminal sequence is not accounted."""
+    provider = "truncated_usage_test_provider"
+    model = "mock-model"
+    prompt = TOKENS.labels(provider=provider, model=model, type="prompt")
+    completion = TOKENS.labels(provider=provider, model=model, type="completion")
+    cost = COST_USD.labels(provider=provider, model=model)
+    before = (prompt._value.get(), completion._value.get(), cost._value.get())
+
+    async def source():
+        yield (
+            b'data: {"choices":[],"usage":{"prompt_tokens":10,'
+            b'"completion_tokens":15,"total_tokens":25}}\n\n'
+        )
+
+    assert b"".join([chunk async for chunk in instrument_stream(source(), provider, model, 0)])
+    assert (prompt._value.get(), completion._value.get(), cost._value.get()) == before
 
 
 @pytest.mark.asyncio

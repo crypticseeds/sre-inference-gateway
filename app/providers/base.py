@@ -34,7 +34,7 @@ class ChatCompletionResponse(BaseModel):
     created: int
     model: str
     choices: list[Dict[str, Any]]
-    usage: Dict[str, int]
+    usage: Optional[Dict[str, int]] = None
 
 
 class ProviderHealth(BaseModel):
