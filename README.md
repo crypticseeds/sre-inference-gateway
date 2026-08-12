@@ -1,5 +1,7 @@
 # SRE Inference Gateway
 
+[![CI](https://github.com/crypticseeds/sre-inference-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/crypticseeds/sre-inference-gateway/actions/workflows/ci.yml)
+
 OpenAI-compatible API gateway with provider abstraction, built with Python 3.13+ and FastAPI.
 
 ## Features
