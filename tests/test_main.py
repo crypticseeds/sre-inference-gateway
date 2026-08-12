@@ -110,3 +110,33 @@ def test_chat_completions_endpoint(mock_registry, client):
     assert data["object"] == "chat.completion"
     assert "choices" in data
     assert "usage" in data
+
+
+@patch("app.router.router.provider_registry")
+def test_chat_completion_request_id_header(mock_registry, client):
+    """Test that the request ID is returned to the caller."""
+    mock_provider = MagicMock()
+    mock_provider.name = "mock_openai"
+    mock_provider.chat_completion = AsyncMock(
+        return_value=MagicMock(
+            id="custom-request-id",
+            object="chat.completion",
+            created=1234567890,
+            model="gpt-3.5-turbo",
+            choices=[],
+            usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        )
+    )
+    mock_registry.get_provider.return_value = mock_provider
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-3.5-turbo",
+            "messages": [{"role": "user", "content": "Hello"}],
+        },
+        headers={"X-Request-ID": "custom-request-id"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "custom-request-id"

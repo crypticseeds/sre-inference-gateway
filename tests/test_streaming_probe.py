@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import socket
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -82,13 +83,11 @@ def test_go_probe_against_mock_streaming_gateway():
             environment.pop(name, None)
 
         log_path = Path(temp_dir) / "gateway.log"
-        uv = shutil.which("uv")
-        assert uv is not None, "uv is required to start the gateway"
         with log_path.open("w", encoding="utf-8") as gateway_log:
             gateway = subprocess.Popen(
                 [
-                    uv,
-                    "run",
+                    sys.executable,
+                    "-m",
                     "uvicorn",
                     "app.main:app",
                     "--host",
@@ -103,7 +102,8 @@ def test_go_probe_against_mock_streaming_gateway():
                 text=True,
             )
             try:
-                for _ in range(100):
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline:
                     if gateway.poll() is not None:
                         break
                     try:

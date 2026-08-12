@@ -780,8 +780,8 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "black" },
-    { name = "httpx" },
     { name = "mypy" },
+    { name = "pylint" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -790,7 +790,13 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "black" },
+    { name = "mypy" },
     { name = "pylint" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -798,7 +804,6 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "fastapi", specifier = ">=0.104.0" },
     { name = "httpx", specifier = ">=0.25.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.25.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "opentelemetry-api", specifier = ">=1.21.0" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.42b0" },
@@ -806,6 +811,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "pydantic-settings", specifier = ">=2.1.0" },
+    { name = "pylint", marker = "extra == 'dev'", specifier = ">=4.0.4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
@@ -819,7 +825,15 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pylint", specifier = ">=4.0.4" }]
+dev = [
+    { name = "black", specifier = ">=23.0.0" },
+    { name = "mypy", specifier = ">=1.7.0" },
+    { name = "pylint", specifier = ">=4.0.4" },
+    { name = "pytest", specifier = ">=7.4.0" },
+    { name = "pytest-asyncio", specifier = ">=0.21.0" },
+    { name = "pytest-cov", specifier = ">=4.1.0" },
+    { name = "ruff", specifier = ">=0.1.0" },
+]
 
 [[package]]
 name = "starlette"

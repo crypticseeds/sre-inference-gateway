@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from app.api.routes import router as api_router
@@ -80,6 +80,15 @@ def create_app() -> FastAPI:
         version=settings.version,
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def add_request_id_header(request: Request, call_next):
+        """Propagate the request ID used by the endpoint to the response."""
+        response = await call_next(request)
+        request_id = getattr(request.state, "request_id", None)
+        if request_id:
+            response.headers["X-Request-ID"] = request_id
+        return response
 
     # Root endpoint
     @app.get("/")
