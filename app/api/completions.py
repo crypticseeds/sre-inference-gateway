@@ -1,6 +1,7 @@
 """Chat completions API endpoint implementation."""
 
 import logging
+import time
 from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,6 +16,13 @@ from app.api.dependencies import (
 )
 from app.models.requests import ChatCompletionRequest
 from app.models.responses import ChatCompletionResponse
+from app.observability.metrics import (
+    IN_FLIGHT_REQUESTS,
+    instrument_stream,
+    record_failure,
+    record_request,
+    record_request_duration,
+)
 from app.router.router import RequestRouter
 
 logger = logging.getLogger(__name__)
@@ -90,13 +98,17 @@ async def create_chat_completion(
                 f"for model {chat_request.model}"
             )
 
+            started_at = time.monotonic()
+            IN_FLIGHT_REQUESTS.labels(provider=provider.name).inc()
             try:
                 if chat_request.stream:
                     stream = await provider.chat_completion_stream(
                         base_request, request_id
                     )
                     return StreamingResponse(
-                        stream,
+                        instrument_stream(
+                            stream, provider.name, chat_request.model, started_at
+                        ),
                         media_type="text/event-stream",
                         headers={
                             "Cache-Control": "no-cache",
@@ -105,9 +117,26 @@ async def create_chat_completion(
                     )
 
                 response = await provider.chat_completion(base_request, request_id)
+                record_request(provider.name, chat_request.model, False, 200)
+                record_request_duration(provider.name, False, started_at)
                 logger.info(f"Completed request {request_id} successfully")
                 return response
             except HTTPException as error:
+                record_request(
+                    provider.name,
+                    chat_request.model,
+                    chat_request.stream,
+                    error.status_code,
+                )
+                record_request_duration(
+                    provider.name, chat_request.stream, started_at
+                )
+                record_failure(
+                    provider.name,
+                    "client_4xx"
+                    if 400 <= error.status_code < 500 and error.status_code != 429
+                    else "establishment",
+                )
                 if error.status_code < 500:
                     raise
                 last_provider_error = error
@@ -118,6 +147,15 @@ async def create_chat_completion(
                     provider.name,
                     error.status_code,
                 )
+            except Exception:
+                record_request(provider.name, chat_request.model, chat_request.stream, 500)
+                record_request_duration(
+                    provider.name, chat_request.stream, started_at
+                )
+                record_failure(provider.name, "establishment")
+                raise
+            finally:
+                IN_FLIGHT_REQUESTS.labels(provider=provider.name).dec()
 
         if last_provider_error:
             raise last_provider_error

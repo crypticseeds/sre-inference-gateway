@@ -7,7 +7,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Request
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from app.api.routes import router as api_router
+from app.api.routes import metrics_router, router as api_router
 from app.api.admin import router as admin_router
 from app.api.health import router as health_router
 from app.config.settings import (
@@ -104,6 +104,8 @@ def create_app() -> FastAPI:
 
     # Include API routes
     app.include_router(api_router, prefix="/v1")
+    app.include_router(metrics_router)
+    app.include_router(metrics_router, prefix="/v1")
     app.include_router(admin_router)
 
     # Include health check routes (no prefix for standard health endpoints)

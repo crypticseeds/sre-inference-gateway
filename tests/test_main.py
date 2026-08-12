@@ -45,6 +45,16 @@ def test_versioned_health_endpoint(client):
     assert data["service"] == "sre-inference-gateway"
 
 
+def test_metrics_endpoint(client):
+    """Expose Prometheus metrics at the canonical scrape path."""
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "gateway_requests_total" in response.text
+    assert "gateway_in_flight_requests" in response.text
+
+
 @patch("app.api.health.update_provider_health_cache", new_callable=AsyncMock)
 @patch(
     "app.api.health._provider_health_cache",
