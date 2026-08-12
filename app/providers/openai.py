@@ -186,20 +186,12 @@ class OpenAIAdapter(BaseProvider):
                     elapsed_ms,
                 )
 
-                # Convert to our response model
-                # Base provider expects usage as a dictionary
-                usage_data = data.get("usage", {})
-                usage_dict = {
-                    "prompt_tokens": usage_data.get("prompt_tokens", 0),
-                    "completion_tokens": usage_data.get("completion_tokens", 0),
-                    "total_tokens": usage_data.get("total_tokens", 0),
-                }
                 return ChatCompletionResponse(
                     id=data.get("id", request_id),
                     created=data.get("created", int(time.time())),
                     model=data.get("model", request.model),
                     choices=data.get("choices", []),
-                    usage=usage_dict,
+                    usage=data.get("usage"),
                 )
 
             except httpx.HTTPStatusError as e:

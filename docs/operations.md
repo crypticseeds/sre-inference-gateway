@@ -33,6 +33,8 @@ curl -sS http://127.0.0.1:8000/v1/metrics
 
 The metric inventory and semantics are in
 [ARCHITECTURE.md](ARCHITECTURE.md#golden-signals).
+Server-usage-only token and cost counter semantics are in
+[cost-tracking.md](cost-tracking.md).
 
 ## Go probe integration
 

@@ -464,6 +464,23 @@ class TestGatewayConfig:
         assert "enabled2" in enabled_names
         assert "disabled" not in enabled_names
 
+    def test_model_pricing_requires_nonnegative_rates(self):
+        """Pricing is keyed by model and rejects negative token rates."""
+        config = GatewayConfig(
+            pricing={
+                "priced-model": {"input_per_1m": 0.15, "output_per_1m": 0.60}
+            }
+        )
+
+        assert config.pricing["priced-model"].input_per_1m == 0.15
+        assert config.pricing["priced-model"].output_per_1m == 0.60
+        with pytest.raises(ValidationError):
+            GatewayConfig(
+                pricing={
+                    "invalid-model": {"input_per_1m": -1, "output_per_1m": 0.60}
+                }
+            )
+
 
 class TestConfigManager:
     """Test configuration manager.
