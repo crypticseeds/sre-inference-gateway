@@ -69,6 +69,12 @@ metrics:
   enabled: true
   port: 9090
 
+# Immediate concurrency admission. Defaults are intentionally above benchmark load.
+load_shedding:
+  enabled: true
+  global_max_in_flight: 200
+  per_provider_max_in_flight: 100
+
 # Per-model USD pricing. Cost is recorded only from provider-reported usage.
 pricing:
   mock-model:

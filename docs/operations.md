@@ -36,6 +36,9 @@ The metric inventory and semantics are in
 Server-usage-only token and cost counter semantics are in
 [cost-tracking.md](cost-tracking.md).
 
+Concurrency limits, overload responses, and tuning are documented in
+[load-shedding.md](load-shedding.md).
+
 ## Go probe integration
 
 The integration test builds `llm-slo-bench` from `git archive HEAD`, starts a

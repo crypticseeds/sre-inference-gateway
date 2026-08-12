@@ -130,6 +130,18 @@ class ResilienceConfig(BaseModel):
     retry: RetryConfig = Field(default_factory=RetryConfig)
 
 
+class LoadSheddingConfig(BaseModel):
+    """Concurrency-based load shedding configuration."""
+
+    enabled: bool = Field(default=True, description="Enable load shedding")
+    global_max_in_flight: int = Field(
+        default=200, ge=1, description="Maximum requests in flight across the gateway"
+    )
+    per_provider_max_in_flight: int = Field(
+        default=100, ge=1, description="Maximum requests in flight per provider"
+    )
+
+
 class GatewayConfig(BaseModel):
     """Main gateway configuration."""
 
@@ -149,6 +161,7 @@ class GatewayConfig(BaseModel):
         default_factory=dict, description="Per-model token pricing in USD"
     )
     resilience: ResilienceConfig = Field(default_factory=ResilienceConfig)
+    load_shedding: LoadSheddingConfig = Field(default_factory=LoadSheddingConfig)
 
     # Request processing
     max_request_size: int = Field(

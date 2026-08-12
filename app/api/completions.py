@@ -22,7 +22,14 @@ from app.observability.metrics import (
     record_failure,
     record_request,
     record_request_duration,
+    record_shed,
     record_usage,
+)
+from app.router.load_shedding import (
+    AdmissionLease,
+    AdmissionStream,
+    AdmissionStreamingResponse,
+    load_shedder,
 )
 from app.router.router import RequestRouter
 
@@ -61,6 +68,14 @@ async def create_chat_completion(
         HTTPException: If no providers available or provider error
     """
     span = trace.get_current_span()
+    global_lease = await load_shedder.try_acquire_global()
+    if global_lease is None:
+        record_shed("global")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Gateway concurrency limit reached; retry later",
+            headers={"Retry-After": "1"},
+        )
 
     try:
         # Convert to base model format for provider compatibility
@@ -87,6 +102,9 @@ async def create_chat_completion(
             provider_priority, attempted_providers
         ):
             attempted_providers.add(provider.name)
+            provider_lease = await load_shedder.try_acquire_provider(provider.name)
+            if provider_lease is None:
+                continue
 
             if span:
                 span.set_attribute("provider.name", provider.name)
@@ -100,15 +118,26 @@ async def create_chat_completion(
             )
 
             started_at = time.monotonic()
-            IN_FLIGHT_REQUESTS.labels(provider=provider.name).inc()
+            in_flight = IN_FLIGHT_REQUESTS.labels(provider=provider.name)
+            in_flight.inc()
+            in_flight_lease = AdmissionLease(in_flight.dec)
             try:
                 if chat_request.stream:
                     stream = await provider.chat_completion_stream(
                         base_request, request_id
                     )
-                    return StreamingResponse(
-                        instrument_stream(
-                            stream, provider.name, chat_request.model, started_at
+                    response = AdmissionStreamingResponse(
+                        AdmissionStream(
+                            instrument_stream(
+                                stream,
+                                provider.name,
+                                chat_request.model,
+                                started_at,
+                                account_in_flight=False,
+                            ),
+                            global_lease,
+                            provider_lease,
+                            in_flight_lease,
                         ),
                         media_type="text/event-stream",
                         headers={
@@ -116,6 +145,10 @@ async def create_chat_completion(
                             "X-Accel-Buffering": "no",
                         },
                     )
+                    global_lease = None
+                    provider_lease = None
+                    in_flight_lease = None
+                    return response
 
                 response = await provider.chat_completion(base_request, request_id)
                 record_usage(provider.name, chat_request.model, response.usage)
@@ -157,12 +190,23 @@ async def create_chat_completion(
                 record_failure(provider.name, "establishment")
                 raise
             finally:
-                IN_FLIGHT_REQUESTS.labels(provider=provider.name).dec()
+                if in_flight_lease is not None:
+                    in_flight_lease.release()
+                if provider_lease is not None:
+                    provider_lease.release()
 
         if last_provider_error:
             raise last_provider_error
 
         logger.error(f"No available providers for request {request_id}")
+        saturated = request_router.get_saturated_providers()
+        if saturated:
+            record_shed("provider", saturated[0])
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="All eligible inference providers are at capacity; retry later",
+                headers={"Retry-After": "1"},
+            )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="No inference providers available",
@@ -180,3 +224,6 @@ async def create_chat_completion(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         )
+    finally:
+        if global_lease is not None:
+            global_lease.release()
