@@ -1,6 +1,11 @@
-# SRE Inference Gateway - Python Migration Roadmap
+# SRE Inference Gateway - Historical Python Migration Roadmap
 
-This document outlines the roadmap and tasks for migrating the SRE Inference Gateway to a Python-native architecture.
+This document preserves the original migration plan. Its status fields and
+checkboxes are historical and are not an implementation inventory. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for current behavior and
+[design-decisions.md](design-decisions.md) for active follow-up work.
+
+The original roadmap outlined tasks for migrating the SRE Inference Gateway to a Python-native architecture.
 Original Go-based issues have been refactored to align with the Python stack (FastAPI, Pydantic, uv, Python 3.13+).
 
 ## Stage 1: Core Foundation (The Big Shift)
@@ -84,15 +89,15 @@ Original Go-based issues have been refactored to align with the Python stack (Fa
 - [ ] Implement HTTP client logic to call local vLLM instance.
 - [ ] Ensure compatibility with OpenAI schema.
 
-## Future / Post-MVP
+## Originally Planned Future / Post-MVP
 
 ### DEV-94: Streaming Support
-**Status**: Backlog
-**Goal**: Support internal logic for streaming but defer full implementation.
+**Status**: Implemented after this roadmap was written
+**Goal**: Original proposal to defer streaming; SSE passthrough is now implemented.
 **Acceptance Criteria**:
-- [ ] Support `stream: true` parameter in valid request models (Pydantic).
-- [ ] Toggle feature via config settings (default off/mock implementation initially).
-- [ ] Full SSE implementation deferred to Post-MVP.
+- [x] Support `stream: true` in request models.
+- [x] Support streaming in enabled mock and real provider adapters.
+- [x] Full SSE passthrough implemented; see [streaming.md](streaming.md).
 
 ### Incident Remediation (from INCIDENT.md)
 **Status**: Backlog
