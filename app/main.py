@@ -97,6 +97,7 @@ def create_app() -> FastAPI:
 
     # Include health check routes (no prefix for standard health endpoints)
     app.include_router(health_router)
+    app.include_router(health_router, prefix="/v1")
 
     # Setup OpenTelemetry instrumentation after tracing is configured
     FastAPIInstrumentor.instrument_app(app)
