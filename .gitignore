@@ -67,6 +67,7 @@ logs/
 .env.local
 .env.production
 secrets/
+infra/prometheus.local.yml
 
 # Temporary files
 tmp/

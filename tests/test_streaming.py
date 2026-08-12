@@ -12,6 +12,8 @@ from app.observability.metrics import (
     COST_USD,
     FAILURE_COUNT,
     IN_FLIGHT_REQUESTS,
+    STREAM_FIRST_BYTE,
+    STREAM_INTERCHUNK,
     TOKENS,
     UNPRICED_REQUESTS,
     instrument_stream,
@@ -174,6 +176,42 @@ async def test_metrics_stream_wrapper_closes_source_on_early_disconnect():
 
     assert closed
     assert IN_FLIGHT_REQUESTS.labels(provider=provider)._value.get() == 0
+
+
+@pytest.mark.asyncio
+async def test_metrics_stream_records_interchunk_latency_with_one_clock_read_per_chunk():
+    """Each forwarded chunk contributes one timestamp and each gap is observed."""
+    provider = "interchunk_test_provider"
+    first_byte = STREAM_FIRST_BYTE.labels(provider=provider)
+    interchunk = STREAM_INTERCHUNK.labels(provider=provider)
+    before_first_count = sum(bucket.get() for bucket in first_byte._buckets)
+    before_first_sum = first_byte._sum.get()
+    before_interchunk_count = sum(bucket.get() for bucket in interchunk._buckets)
+    before_interchunk_sum = interchunk._sum.get()
+
+    async def source():
+        yield b"first"
+        yield b"second"
+        yield b"third"
+
+    with patch(
+        "app.observability.metrics.time.monotonic",
+        side_effect=[10.0, 10.05, 10.2, 10.3],
+    ) as monotonic:
+        chunks = [
+            chunk
+            async for chunk in instrument_stream(source(), provider, "test-model", 9.8)
+        ]
+
+    assert chunks == [b"first", b"second", b"third"]
+    assert monotonic.call_count == len(chunks) + 1  # Final request-duration sample.
+    assert sum(bucket.get() for bucket in first_byte._buckets) == before_first_count + 1
+    assert first_byte._sum.get() == pytest.approx(before_first_sum + 0.2)
+    assert (
+        sum(bucket.get() for bucket in interchunk._buckets)
+        == before_interchunk_count + 2
+    )
+    assert interchunk._sum.get() == pytest.approx(before_interchunk_sum + 0.2)
 
 
 @pytest.mark.asyncio

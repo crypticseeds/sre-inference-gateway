@@ -11,10 +11,8 @@ env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY -u GEMINI_API_KEY \
 ```
 
 `make dev` also starts Redis, Prometheus, and Grafana with Docker Compose before
-running the gateway on the host. Doppler is optional. Note that the checked-in
-Prometheus target is `gateway:8000`, while `make dev` does not start the Compose
-gateway service; scrape the host process directly or run the gateway service in
-the Compose network when using that configuration.
+running the gateway on the host. Doppler is optional. Prometheus reaches that
+host process through `host.docker.internal:8000`.
 
 ## Failover drill
 
@@ -31,7 +29,9 @@ curl -sS http://127.0.0.1:8000/metrics
 curl -sS http://127.0.0.1:8000/v1/metrics
 ```
 
-The metric inventory and semantics are in
+The local and Grafana Cloud monitoring runbook, dashboard import instructions,
+and complete metric inventory are in [monitoring.md](monitoring.md). Golden
+signal architecture semantics are also summarized in
 [ARCHITECTURE.md](ARCHITECTURE.md#golden-signals).
 Server-usage-only token and cost counter semantics are in
 [cost-tracking.md](cost-tracking.md).
