@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize providers from configuration
     try:
         gateway_config = get_gateway_config()
-        provider_registry.initialize_from_config(gateway_config.providers)
+        await provider_registry.initialize_from_config(gateway_config.providers)
         logger.info(f"Initialized {len(provider_registry.list_providers())} providers")
     except Exception as e:
         logger.error(f"Failed to initialize providers: {e}")
@@ -97,6 +97,7 @@ def create_app() -> FastAPI:
 
     # Include health check routes (no prefix for standard health endpoints)
     app.include_router(health_router)
+    app.include_router(health_router, prefix="/v1")
 
     # Setup OpenTelemetry instrumentation after tracing is configured
     FastAPIInstrumentor.instrument_app(app)

@@ -36,6 +36,15 @@ def test_health_endpoint(client):
     assert data["service"] == "sre-inference-gateway"
 
 
+def test_versioned_health_endpoint(client):
+    """Test OpenAI API namespace health endpoint."""
+    response = client.get("/v1/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["service"] == "sre-inference-gateway"
+
+
 @patch("app.api.health.update_provider_health_cache", new_callable=AsyncMock)
 @patch(
     "app.api.health._provider_health_cache",
