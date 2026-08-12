@@ -20,6 +20,13 @@ class ProviderConfig(BaseModel):
     )
     timeout: float = Field(default=30.0, gt=0, description="Request timeout in seconds")
     max_retries: int = Field(default=3, ge=0, description="Maximum retry attempts")
+    model: Optional[str] = Field(default=None, description="Configured model name")
+    stream_chunk_delay: float = Field(
+        default=0.05, ge=0, description="Mock SSE inter-chunk delay in seconds"
+    )
+    stream_content_chunks: int = Field(
+        default=3, ge=2, description="Number of mock SSE content chunks"
+    )
 
 
 class ServerConfig(BaseModel):

@@ -2,6 +2,7 @@
 
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
@@ -16,10 +17,12 @@ class ChatCompletionRequest(BaseModel):
     messages: list[Dict[str, Any]]
     temperature: Optional[float] = 1.0
     max_tokens: Optional[int] = None
+    max_completion_tokens: Optional[int] = None
     top_p: Optional[float] = 1.0
     frequency_penalty: Optional[float] = 0.0
     presence_penalty: Optional[float] = 0.0
     stream: bool = False
+    stream_options: Optional[Dict[str, bool]] = None
     user: Optional[str] = None
 
 
@@ -82,6 +85,27 @@ class BaseProvider(ABC):
             request,
             request_id,
         )
+
+    async def chat_completion_stream(
+        self, request: ChatCompletionRequest, request_id: str
+    ) -> AsyncIterator[bytes]:
+        """Establish a streaming completion through the resilience path."""
+        from app.config.settings import get_gateway_config
+
+        return await execute_with_resilience(
+            self._chat_completion_stream_impl,
+            self.name,
+            get_gateway_config().resilience,
+            request,
+            request_id,
+        )
+
+    @abstractmethod
+    async def _chat_completion_stream_impl(
+        self, request: ChatCompletionRequest, request_id: str
+    ) -> AsyncIterator[bytes]:
+        """Establish a provider stream and return its SSE byte iterator."""
+        pass
 
     @abstractmethod
     async def _chat_completion_impl(
