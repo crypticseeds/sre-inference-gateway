@@ -14,7 +14,7 @@ providers:
   - name: "openai"
     type: "openai"
     weight: 0.5
-    enabled: true  # Enabled for testing
+    enabled: false  # Enable only when OPENAI_API_KEY is configured
     base_url: "https://api.openai.com/v1"
     api_key_env: "OPENAI_API_KEY"  # Environment variable for API key
     health_check_url: null
@@ -34,7 +34,7 @@ providers:
   - name: "mock_openai"
     type: "mock"
     model: "mock-model"
-    weight: 1.0
+    weight: 0.5
     enabled: true  # No API key required - allows a zero-key local round trip
     health_check_url: null
     timeout: 30.0
@@ -44,11 +44,14 @@ providers:
   
   - name: "mock_vllm"
     type: "mock"
-    weight: 0.0
-    enabled: false
+    model: "mock-model"
+    weight: 0.5
+    enabled: true
     health_check_url: null
     timeout: 30.0
     max_retries: 3
+    stream_chunk_delay: 0.05
+    stream_content_chunks: 3
 
 # Health check configuration
 health:
@@ -73,12 +76,12 @@ request_timeout: 35.0      # Request timeout in seconds (slightly larger than pr
 # Resilience configuration
 resilience:
   circuit_breaker:
-    failure_threshold: 5      # Number of failures before opening circuit
-    recovery_timeout: 60.0    # Time in seconds before attempting recovery
+    failure_threshold: 2      # Number of failed requests before opening circuit
+    recovery_timeout: 5.0     # Time in seconds before attempting recovery
     expected_exception: "Exception"  # Exception type to trigger circuit breaker
   
   retry:
-    max_attempts: 3           # Maximum retry attempts
+    max_attempts: 1           # Fail over promptly; providers may retry internally
     min_wait: 1.0            # Minimum wait time between retries in seconds
     max_wait: 10.0           # Maximum wait time between retries in seconds
     exponential_base: 2.0    # Exponential backoff base multiplier

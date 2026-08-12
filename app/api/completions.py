@@ -54,27 +54,6 @@ async def create_chat_completion(
     span = trace.get_current_span()
 
     try:
-        # Select provider
-        provider = request_router.select_provider(provider_priority)
-        if not provider:
-            logger.error(f"No available providers for request {request_id}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="No inference providers available",
-            )
-
-        # Add provider info to span
-        if span:
-            span.set_attribute("provider.name", provider.name)
-            span.set_attribute("chat.model", chat_request.model)
-            span.set_attribute("chat.stream", chat_request.stream)
-            span.set_attribute("chat.messages_count", len(chat_request.messages))
-
-        logger.info(
-            f"Processing request {request_id} with provider {provider.name} "
-            f"for model {chat_request.model}"
-        )
-
         # Convert to base model format for provider compatibility
         from app.providers.base import ChatCompletionRequest as BaseRequest
 
@@ -92,22 +71,62 @@ async def create_chat_completion(
             user=chat_request.user,
         )
 
-        # Process request
-        if chat_request.stream:
-            stream = await provider.chat_completion_stream(base_request, request_id)
-            return StreamingResponse(
-                stream,
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "X-Accel-Buffering": "no",
-                },
+        attempted_providers = set()
+        last_provider_error = None
+
+        while provider := request_router.select_provider(
+            provider_priority, attempted_providers
+        ):
+            attempted_providers.add(provider.name)
+
+            if span:
+                span.set_attribute("provider.name", provider.name)
+                span.set_attribute("chat.model", chat_request.model)
+                span.set_attribute("chat.stream", chat_request.stream)
+                span.set_attribute("chat.messages_count", len(chat_request.messages))
+
+            logger.info(
+                f"Processing request {request_id} with provider {provider.name} "
+                f"for model {chat_request.model}"
             )
 
-        response = await provider.chat_completion(base_request, request_id)
+            try:
+                if chat_request.stream:
+                    stream = await provider.chat_completion_stream(
+                        base_request, request_id
+                    )
+                    return StreamingResponse(
+                        stream,
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "X-Accel-Buffering": "no",
+                        },
+                    )
 
-        logger.info(f"Completed request {request_id} successfully")
-        return response
+                response = await provider.chat_completion(base_request, request_id)
+                logger.info(f"Completed request {request_id} successfully")
+                return response
+            except HTTPException as error:
+                if error.status_code < 500:
+                    raise
+                last_provider_error = error
+                logger.warning(
+                    "event=provider_failover request_id=%s failed_provider=%s "
+                    "status_code=%s",
+                    request_id,
+                    provider.name,
+                    error.status_code,
+                )
+
+        if last_provider_error:
+            raise last_provider_error
+
+        logger.error(f"No available providers for request {request_id}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No inference providers available",
+        )
 
     except HTTPException:
         raise
