@@ -16,6 +16,7 @@ from app.observability.metrics import (
     REQUEST_COUNT,
     REQUEST_DURATION,
     STREAM_FIRST_BYTE,
+    STREAM_INTERCHUNK,
     TOKENS,
     UNPRICED_REQUESTS,
 )
@@ -74,6 +75,7 @@ def test_request_metrics_move_for_streaming_and_non_streaming(mock_registry):
         REQUEST_DURATION, provider=provider_name, stream="true"
     )
     before_first_byte = histogram_count(STREAM_FIRST_BYTE, provider=provider_name)
+    before_interchunk = histogram_count(STREAM_INTERCHUNK, provider=provider_name)
 
     with TestClient(create_app()) as client:
         payload = {
@@ -103,6 +105,9 @@ def test_request_metrics_move_for_streaming_and_non_streaming(mock_registry):
     assert histogram_count(
         STREAM_FIRST_BYTE, provider=provider_name
     ) == before_first_byte + 1
+    assert histogram_count(
+        STREAM_INTERCHUNK, provider=provider_name
+    ) == before_interchunk + 1
     assert IN_FLIGHT_REQUESTS.labels(provider=provider_name)._value.get() == 0
 
 

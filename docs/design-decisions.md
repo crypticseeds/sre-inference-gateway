@@ -95,3 +95,13 @@ Provider saturation is an eligibility condition during routing, like an open
 circuit breaker. This preserves healthy-provider fallback without admitting more
 work to the saturated provider. Streaming requests retain their global and
 provider admission slots for the complete downstream stream lifetime.
+
+## Gateway inter-chunk latency
+
+`gateway_stream_interchunk_seconds` measures elapsed time between consecutive
+transport chunks forwarded by the gateway. It does not parse SSE events or model
+tokens, so it is a gateway-observed proxy for inter-token latency (ITL), not the
+benchmark's client-observed chunk ITL. This distinction preserves byte-faithful,
+unparsed stream forwarding while making gateway-observed chunk cadence visible.
+Because the timestamp is taken when iteration resumes, downstream backpressure
+can contribute to the measured interval.

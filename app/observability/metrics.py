@@ -31,6 +31,13 @@ STREAM_FIRST_BYTE = Histogram(
     ["provider"],
 )
 
+STREAM_INTERCHUNK = Histogram(
+    "gateway_stream_interchunk_seconds",
+    "Time between consecutive streaming response chunks forwarded by the gateway",
+    ["provider"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.25, 0.5, 1, 2.5),
+)
+
 FAILURE_COUNT = Counter(
     "gateway_failures_total",
     "Total number of chat completion failures",
@@ -192,19 +199,22 @@ async def instrument_stream(
     account_in_flight: bool = True,
 ) -> AsyncIterator[bytes]:
     """Pass through bytes and account from a bounded tail after streaming ends."""
-    first_byte_recorded = False
+    previous_chunk_at = None
     tail = b""
     exhausted = False
     close_succeeded = False
+    first_byte_metric = STREAM_FIRST_BYTE.labels(provider=provider)
+    interchunk_metric = STREAM_INTERCHUNK.labels(provider=provider)
     if account_in_flight:
         IN_FLIGHT_REQUESTS.labels(provider=provider).inc()
     try:
         async for chunk in stream:
-            if not first_byte_recorded:
-                STREAM_FIRST_BYTE.labels(provider=provider).observe(
-                    time.monotonic() - started_at
-                )
-                first_byte_recorded = True
+            chunk_at = time.monotonic()
+            if previous_chunk_at is None:
+                first_byte_metric.observe(chunk_at - started_at)
+            else:
+                interchunk_metric.observe(chunk_at - previous_chunk_at)
+            previous_chunk_at = chunk_at
             tail = (tail + chunk)[-2048:]
             yield chunk
         exhausted = True

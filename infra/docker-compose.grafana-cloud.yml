@@ -1,0 +1,4 @@
+services:
+  prometheus:
+    volumes:
+      - ./prometheus.local.yml:/etc/prometheus/prometheus.yml:ro

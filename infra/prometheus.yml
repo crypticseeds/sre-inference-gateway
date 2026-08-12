@@ -5,6 +5,15 @@ global:
 scrape_configs:
   - job_name: 'sre-inference-gateway'
     static_configs:
-      - targets: ['gateway:8000']
+      # Host-run gateway (make dev). For a compose-run gateway use gateway:8000.
+      # Recent Colima and Docker Desktop resolve this; Colima fallback: 192.168.5.2:8000.
+      - targets: ['host.docker.internal:8000']
     scrape_interval: 5s
     metrics_path: /metrics
+
+# Copy to prometheus.local.yml and uncomment before using the compose override.
+# remote_write:
+#   - url: https://<your-grafana-cloud-prometheus-endpoint>/api/prom/push
+#     basic_auth:
+#       username: <instance-id>
+#       password: <api-token>

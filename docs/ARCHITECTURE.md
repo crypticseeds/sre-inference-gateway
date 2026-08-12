@@ -155,6 +155,7 @@ Metrics are exposed on the gateway's HTTP port.
 | Traffic | `gateway_requests_total` | `provider`, `model`, `stream`, `status_class` | Completed provider attempts. Failover legs count separately. |
 | Latency | `gateway_request_duration_seconds` | `provider`, `stream` | Provider-attempt lifetime. Streaming includes iterator lifetime. |
 | Time to first byte | `gateway_stream_first_byte_seconds` | `provider` | Time from attempt start to first forwarded chunk. |
+| Inter-chunk latency | `gateway_stream_interchunk_seconds` | `provider` | Time between gateway-forwarded transport chunks; an ITL proxy, not token latency. |
 | Errors | `gateway_failures_total` | `provider`, `error_type` | `client_4xx`, `establishment`, or `mid_stream_truncation`. |
 | Saturation | `gateway_in_flight_requests` | `provider` | Active provider work, including stream iteration. |
 | Load shedding | `gateway_shed_requests_total` | `scope`, `provider` | Requests rejected by global or provider concurrency admission. |
