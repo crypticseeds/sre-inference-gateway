@@ -33,8 +33,8 @@ providers:
   
   - name: "mock_openai"
     type: "mock"
-    weight: 0.0
-    enabled: false
+    weight: 1.0
+    enabled: true  # No API key required - allows a zero-key local round trip
     health_check_url: null
     timeout: 30.0
     max_retries: 3
