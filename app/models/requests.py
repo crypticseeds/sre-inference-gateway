@@ -1,6 +1,6 @@
 """Request models for OpenAI-compatible API."""
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -44,6 +44,9 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = Field(
         None, gt=0, description="Maximum tokens to generate"
     )
+    max_completion_tokens: Optional[int] = Field(
+        None, gt=0, description="Maximum completion tokens to generate"
+    )
     top_p: Optional[float] = Field(
         1.0, ge=0.0, le=1.0, description="Nucleus sampling parameter"
     )
@@ -54,6 +57,9 @@ class ChatCompletionRequest(BaseModel):
         0.0, ge=-2.0, le=2.0, description="Presence penalty"
     )
     stream: bool = Field(False, description="Whether to stream responses")
+    stream_options: Optional[Dict[str, bool]] = Field(
+        None, description="Streaming response options"
+    )
     user: Optional[str] = Field(None, description="User identifier")
 
     @field_validator("messages")

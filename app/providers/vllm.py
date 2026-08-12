@@ -8,6 +8,7 @@ calls to vLLM API requests, handling retries, error handling, and health monitor
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from typing import Any, Dict
 
 import httpx
@@ -19,6 +20,7 @@ from app.providers.base import (
     ChatCompletionResponse,
     ProviderHealth,
 )
+from app.providers.streaming import stream_sse_response
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +172,45 @@ class VLLMAdapter(BaseProvider):
             status_code=502,
             detail=f"vLLM service request failed after {self.max_retries} attempts",
         )
+
+    async def _chat_completion_stream_impl(
+        self, request: ChatCompletionRequest, request_id: str
+    ) -> AsyncIterator[bytes]:
+        """Open a vLLM SSE response for byte-faithful forwarding."""
+        try:
+            upstream = await self.client.send(
+                self.client.build_request(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    json=request.model_dump(exclude_none=True),
+                    headers={
+                        "Accept": "text/event-stream",
+                        "Accept-Encoding": "identity",
+                    },
+                ),
+                stream=True,
+            )
+            upstream.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            try:
+                await exc.response.aread()
+            finally:
+                await exc.response.aclose()
+            raise HTTPException(
+                status_code=exc.response.status_code,
+                detail=f"vLLM API error: {exc.response.text}",
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise HTTPException(
+                status_code=504, detail="vLLM service request timeout"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=502, detail=f"Failed to connect to vLLM service: {exc}"
+            ) from exc
+
+        logger.info("vLLM stream established: request_id=%s", request_id)
+        return stream_sse_response(upstream, self.name)
 
     async def _health_check_impl(self) -> ProviderHealth:
         """Check vLLM service health and measure latency."""

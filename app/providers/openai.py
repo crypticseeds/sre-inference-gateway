@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from typing import Any, Dict
 
 import httpx
@@ -14,6 +15,7 @@ from app.providers.base import (
     ChatCompletionResponse,
     ProviderHealth,
 )
+from app.providers.streaming import stream_sse_response
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +146,7 @@ class OpenAIAdapter(BaseProvider):
             "messages": request.messages,
             "temperature": request.temperature,
             "max_tokens": request.max_tokens,
+            "max_completion_tokens": request.max_completion_tokens,
             "top_p": request.top_p,
             "frequency_penalty": request.frequency_penalty,
             "presence_penalty": request.presence_penalty,
@@ -290,6 +293,72 @@ class OpenAIAdapter(BaseProvider):
         raise RuntimeError(
             f"All {self.max_retries} retry attempts failed without raising an exception"
         )
+
+    async def _chat_completion_stream_impl(
+        self, request: ChatCompletionRequest, request_id: str
+    ) -> AsyncIterator[bytes]:
+        """Open an OpenAI SSE response for byte-faithful forwarding."""
+        payload = request.model_dump(exclude_none=True)
+        for attempt in range(self.max_retries):
+            try:
+                upstream = await self.client.send(
+                    self.client.build_request(
+                        "POST",
+                        f"{self.base_url}/chat/completions",
+                        json=payload,
+                        headers={
+                            "Accept": "text/event-stream",
+                            "Accept-Encoding": "identity",
+                        },
+                    ),
+                    stream=True,
+                )
+                upstream.raise_for_status()
+                break
+            except httpx.HTTPStatusError as exc:
+                try:
+                    await exc.response.aread()
+                finally:
+                    await exc.response.aclose()
+                status_code = exc.response.status_code
+                if status_code == 429 and attempt < self.max_retries - 1:
+                    await asyncio.sleep(2**attempt)
+                    continue
+                if status_code == 401:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="OpenAI API authentication failed",
+                    ) from exc
+                if status_code == 400:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid request: {exc.response.text}",
+                    ) from exc
+                if status_code == 429:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="OpenAI API rate limit exceeded",
+                    ) from exc
+                if status_code >= 500:
+                    raise HTTPException(
+                        status_code=502,
+                        detail="OpenAI API server error",
+                    ) from exc
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=f"OpenAI API error: {exc.response.text}",
+                ) from exc
+            except httpx.TimeoutException as exc:
+                raise HTTPException(
+                    status_code=504, detail="OpenAI API request timeout"
+                ) from exc
+            except httpx.RequestError as exc:
+                raise HTTPException(
+                    status_code=502, detail=f"Failed to connect to OpenAI API: {exc}"
+                ) from exc
+
+        logger.info("OpenAI stream established: request_id=%s", request_id)
+        return stream_sse_response(upstream, self.name)
 
     async def _health_check_impl(self) -> ProviderHealth:
         """Check OpenAI API health and measure latency.

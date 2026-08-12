@@ -1,10 +1,11 @@
 """Chat completions API endpoint implementation."""
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from opentelemetry import trace
+from starlette.responses import StreamingResponse
 
 from app.api.dependencies import (
     get_provider_priority,
@@ -34,7 +35,7 @@ async def create_chat_completion(
     provider_priority: Optional[str] = Depends(get_provider_priority),
     request_router: RequestRouter = Depends(get_router),
     _: None = Depends(setup_request_context),
-) -> ChatCompletionResponse:
+) -> Union[ChatCompletionResponse, StreamingResponse]:
     """Create a chat completion.
 
     Args:
@@ -82,14 +83,27 @@ async def create_chat_completion(
             messages=[msg.model_dump() for msg in chat_request.messages],
             temperature=chat_request.temperature,
             max_tokens=chat_request.max_tokens,
+            max_completion_tokens=chat_request.max_completion_tokens,
             top_p=chat_request.top_p,
             frequency_penalty=chat_request.frequency_penalty,
             presence_penalty=chat_request.presence_penalty,
             stream=chat_request.stream,
+            stream_options=chat_request.stream_options,
             user=chat_request.user,
         )
 
         # Process request
+        if chat_request.stream:
+            stream = await provider.chat_completion_stream(base_request, request_id)
+            return StreamingResponse(
+                stream,
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+
         response = await provider.chat_completion(base_request, request_id)
 
         logger.info(f"Completed request {request_id} successfully")

@@ -33,11 +33,14 @@ providers:
   
   - name: "mock_openai"
     type: "mock"
+    model: "mock-model"
     weight: 1.0
     enabled: true  # No API key required - allows a zero-key local round trip
     health_check_url: null
     timeout: 30.0
     max_retries: 3
+    stream_chunk_delay: 0.05
+    stream_content_chunks: 3
   
   - name: "mock_vllm"
     type: "mock"
