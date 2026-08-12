@@ -63,7 +63,8 @@ async def test_provider_health_checks():
     assert vllm_health.latency_ms == 200.0
 
 
-def test_provider_registry():
+@pytest.mark.asyncio
+async def test_provider_registry():
     """Test provider registry."""
     from app.config.models import ProviderConfig
 
@@ -75,7 +76,7 @@ def test_provider_registry():
         ProviderConfig(name="mock_vllm", type="mock", enabled=True),
     ]
 
-    registry.initialize_from_config(mock_configs)
+    await registry.initialize_from_config(mock_configs)
 
     # Check providers are registered
     providers = registry.list_providers()

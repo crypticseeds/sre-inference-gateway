@@ -334,7 +334,8 @@ class TestResilienceHandler:
         with pytest.raises(HTTPException) as exc_info:
             await resilience_handler.execute_with_resilience(non_retryable_func)
 
-        assert exc_info.value.status_code == 500
+        assert exc_info.value.status_code == 400
+        assert "Invalid input" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_http_4xx_error_handling(self, resilience_handler):
@@ -488,7 +489,7 @@ class TestMetricsIntegration:
         return ResilienceHandler("metrics_test_provider", resilience_config)
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_metrics(self, circuit_breaker):
+    async def test_circuit_breaker_metrics(self, circuit_breaker_config):
         """Test circuit breaker metrics are recorded."""
         with patch(
             "app.router.circuit_breaker.circuit_breaker_state_gauge"
@@ -496,6 +497,9 @@ class TestMetricsIntegration:
             with patch(
                 "app.router.circuit_breaker.circuit_breaker_calls_total"
             ) as mock_counter:
+                circuit_breaker = CircuitBreaker(
+                    "metrics_test_provider", circuit_breaker_config
+                )
 
                 async def success_func():
                     return "success"

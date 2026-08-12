@@ -162,6 +162,9 @@ class ResilienceHandler:
                 f"{self.provider_name}: {e}"
             )
 
+            if isinstance(e, HTTPException):
+                raise
+
             # Convert to HTTP 502 Bad Gateway
             raise HTTPException(
                 status_code=502,
