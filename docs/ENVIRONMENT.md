@@ -1,109 +1,33 @@
-# Environment Configuration
+# Environment configuration
 
-This document describes the environment variables used by the SRE Inference Gateway.
+Runtime gateway configuration comes from `config.yaml`. The application does not
+apply environment-variable overrides for server host, port, logging, provider
+weights, request limits, health settings, or metrics settings.
 
-## Required Environment Variables
+## Variables read by the gateway
 
-### Production Deployment
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Used when an enabled OpenAI provider names it in `api_key_env`. Other variable names can be configured there. |
+| `FAILOVER_DRILL_ADMIN` | Enables mock fail/restore routes only when exactly `1`. |
 
-The following environment variables **MUST** be set for production deployments:
+The vLLM and mock adapters do not require credentials in the checked-in
+configuration. Real providers are disabled by default.
 
-```bash
-# Redis Authentication
-REDIS_PASSWORD=your_secure_redis_password_here
+## Development tooling
 
-# Grafana Admin Access
-GRAFANA_ADMIN_PASSWORD=your_secure_grafana_admin_password_here
-```
+| Variable | Consumer |
+| --- | --- |
+| `REDIS_PASSWORD` | Docker Compose Redis service. The Makefile supplies `local-dev-password` by default. |
+| `GRAFANA_ADMIN_PASSWORD` | Docker Compose Grafana service. The Makefile supplies `local-dev-password` by default. |
+| `LLM_SLO_BENCH_DIR` | Optional path override used by the Go-probe integration test. |
 
-## Optional Environment Variables
+Redis and Grafana variables configure local infrastructure. The gateway does not
+use Redis on its completion request path.
 
-### Application Settings
+The Makefile uses `doppler run --` only when Doppler is installed and its probe
+command succeeds. Doppler is not required for no-key mock runs.
 
-```bash
-# Application Configuration
-DEBUG=false                    # Enable debug mode (default: false)
-LOG_LEVEL=INFO                # Logging level (default: INFO)
-HOST=0.0.0.0                  # Host to bind to (default: 0.0.0.0)
-PORT=8000                     # Port to bind to (default: 8000)
-
-# Metrics Configuration
-METRICS_PORT=9090             # Port for separate metrics server when ENABLE_METRICS_SERVER=true (default: 9090)
-ENABLE_METRICS_SERVER=false  # Enable separate metrics server (default: false)
-                              # When false: metrics served via /v1/metrics on main PORT
-                              # When true: metrics served on separate METRICS_PORT
-```
-
-### Request Processing
-
-```bash
-MAX_REQUEST_SIZE=1048576      # Maximum request size in bytes (default: 1MB)
-REQUEST_TIMEOUT=30.0          # Request timeout in seconds (default: 30.0)
-HEALTH_CHECK_INTERVAL=30.0    # Health check interval (default: 30.0)
-```
-
-### Provider Configuration
-
-```bash
-# Provider weights as JSON (default: equal weights for mock providers)
-PROVIDER_WEIGHTS='{"mock_openai": 0.5, "mock_vllm": 0.5}'
-```
-
-## Deployment Configurations
-
-### Development
-
-For local development, copy `.env.example` to `.env` and customize:
-
-```bash
-cp .env.example .env
-# Edit .env with your local settings
-```
-
-### Production with Docker Compose
-
-Use environment variable substitution:
-
-```bash
-# Set required variables
-export REDIS_PASSWORD="your_secure_password"
-export GRAFANA_ADMIN_PASSWORD="your_secure_grafana_password"
-
-# Optional: Override defaults
-export DEBUG=false
-export LOG_LEVEL=WARN
-
-# Start services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
-
-### Kubernetes Deployment
-
-Use Kubernetes secrets and ConfigMaps:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: gateway-secrets
-type: Opaque
-stringData:
-  redis-password: "your_secure_password"
-  grafana-admin-password: "your_secure_grafana_password"
-```
-
-## Security Best Practices
-
-1. **Never commit secrets to version control**
-2. **Use Doppler or similar secret management in production**
-3. **Rotate passwords regularly**
-4. **Use strong, unique passwords for each service**
-5. **Limit Redis access to internal networks only**
-6. **Use TLS/SSL for all external communications**
-
-## Environment Variable Precedence
-
-1. Doppler (production)
-2. Environment variables
-3. `.env` file (development only)
-4. Default values in code
+Metrics are always served by FastAPI on the gateway HTTP port at `/metrics` and
+`/v1/metrics`. The `metrics.port` field in `config.yaml` does not start a
+separate server.

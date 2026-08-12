@@ -51,9 +51,12 @@ class ProviderConfig(BaseModel):
 | `enabled` | `bool` | `True` | - | Whether provider is active |
 | `base_url` | `Optional[str]` | `None` | - | Provider API base URL |
 | `api_key_env` | `Optional[str]` | `None` | - | Environment variable name for API key |
-| `health_check_url` | `Optional[str]` | `None` | - | Health check endpoint URL |
+| `health_check_url` | `Optional[str]` | `None` | - | Used by API health routes; adapter-level health methods instead query `{base_url}/models` |
 | `timeout` | `float` | `30.0` | `> 0` | Request timeout in seconds |
 | `max_retries` | `int` | `3` | `>= 0` | Maximum retry attempts |
+| `model` | `Optional[str]` | `None` | - | Configured model name; used by mock providers |
+| `stream_chunk_delay` | `float` | `0.05` | `>= 0` | Mock delay before each SSE event, in seconds |
+| `stream_content_chunks` | `int` | `3` | `>= 2` | Number of mock SSE content events |
 
 #### Usage Examples
 
@@ -148,7 +151,7 @@ class HealthConfig(BaseModel):
 |-----------|------|---------|-------------|-------------|
 | `check_interval` | `float` | `30.0` | `> 0` | Health check interval in seconds |
 | `timeout` | `float` | `5.0` | `> 0` | Health check timeout in seconds |
-| `retries` | `int` | `3` | `>= 0` | Number of health check retries |
+| `retries` | `int` | `3` | `>= 0` | Parsed but not used by the current health implementation |
 
 #### Usage Examples
 
@@ -241,8 +244,8 @@ class MetricsConfig(BaseModel):
 
 | Attribute | Type | Default | Constraints | Description |
 |-----------|------|---------|-------------|-------------|
-| `enabled` | `bool` | `True` | - | Enable metrics collection |
-| `port` | `int` | `9090` | `1-65535` | Metrics server port |
+| `enabled` | `bool` | `True` | - | Parsed but not used; metrics routes are always mounted |
+| `port` | `int` | `9090` | `1-65535` | Parsed but not used; metrics share the gateway HTTP port |
 
 #### Usage Examples
 
@@ -258,7 +261,7 @@ metrics = MetricsConfig(
     port=9091
 )
 
-# Disabled metrics for testing
+# Accepted by the model but has no runtime effect; metrics routes remain mounted
 test_metrics = MetricsConfig(enabled=False)
 ```
 
@@ -279,7 +282,7 @@ class CircuitBreakerConfig(BaseModel):
 |-----------|------|---------|-------------|-------------|
 | `failure_threshold` | `int` | `5` | `>= 1` | Number of failures before opening circuit |
 | `recovery_timeout` | `float` | `60.0` | `> 0` | Time in seconds before attempting recovery |
-| `expected_exception` | `str` | `"Exception"` | - | Exception type to trigger circuit breaker |
+| `expected_exception` | `str` | `"Exception"` | - | Parsed but not consulted by the current breaker |
 
 #### Usage Examples
 
@@ -318,11 +321,11 @@ class RetryConfig(BaseModel):
 
 | Attribute | Type | Default | Constraints | Description |
 |-----------|------|---------|-------------|-------------|
-| `max_attempts` | `int` | `3` | `>= 1` | Maximum retry attempts |
+| `max_attempts` | `int` | `3` | `>= 1` | Total attempts, including the initial call |
 | `min_wait` | `float` | `1.0` | `> 0` | Minimum wait time between retries in seconds |
 | `max_wait` | `float` | `10.0` | `> 0` | Maximum wait time between retries in seconds |
 | `exponential_base` | `float` | `2.0` | `> 1` | Exponential backoff base multiplier |
-| `jitter` | `bool` | `True` | - | Add random jitter to wait times |
+| `jitter` | `bool` | `True` | - | Select Tenacity's `wait_exponential`; no random jitter is added by the current implementation |
 
 #### Validation Methods
 
@@ -429,8 +432,8 @@ class GatewayConfig(BaseModel):
 | `logging` | `LoggingConfig` | `LoggingConfig()` | Logging configuration |
 | `metrics` | `MetricsConfig` | `MetricsConfig()` | Metrics configuration |
 | `resilience` | `ResilienceConfig` | `ResilienceConfig()` | Resilience patterns configuration |
-| `max_request_size` | `int` | `1048576` (1MB) | Maximum request size in bytes |
-| `request_timeout` | `float` | `30.0` | Request timeout in seconds |
+| `max_request_size` | `int` | `1048576` (1MB) | Parsed but not enforced by the current request path |
+| `request_timeout` | `float` | `30.0` | Parsed but not enforced by the current request path |
 
 #### Validation Methods
 

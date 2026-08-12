@@ -36,7 +36,9 @@ All providers implement the `BaseProvider` interface which ensures:
 
 ## Configuration
 
-Providers are configured via `config.yaml` and can be enabled/disabled dynamically through hot-reload.
+Providers are configured via `config.yaml` and initialized at startup. The file
+watcher reloads parsed settings, but no callback rebuilds the provider registry;
+provider enablement changes require a restart.
 
 ## Related Issues
 

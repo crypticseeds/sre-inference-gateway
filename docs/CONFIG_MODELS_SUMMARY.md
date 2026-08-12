@@ -33,6 +33,9 @@ Configures individual inference providers (OpenAI, vLLM, mock).
 - `enabled`: Whether provider is active
 - `timeout`: Request timeout in seconds
 - `max_retries`: Maximum retry attempts
+- `model`: Optional configured model name used by mocks
+- `stream_chunk_delay`: Mock SSE event delay (default: 0.05s)
+- `stream_content_chunks`: Mock SSE content event count (default: 3, minimum: 2)
 
 #### `ServerConfig`
 Configures FastAPI server binding.
@@ -48,7 +51,7 @@ Configures provider health monitoring.
 **Key Attributes:**
 - `check_interval`: Time between health checks (default: 30.0s)
 - `timeout`: Health check timeout (default: 5.0s)
-- `retries`: Number of health check retries (default: 3)
+- `retries`: Parsed health retry count (default: 3); currently unused
 
 #### `LoggingConfig`
 Configures application logging.
@@ -58,11 +61,12 @@ Configures application logging.
 - `format`: Log format string
 
 #### `MetricsConfig`
-Configures Prometheus metrics collection.
+Parses Prometheus-related fields. The current application always mounts metrics
+on its main HTTP port and does not consult these values.
 
 **Key Attributes:**
-- `enabled`: Enable metrics collection (default: True)
-- `port`: Metrics server port (default: 9090)
+- `enabled`: Parsed but currently unused (default: True)
+- `port`: Parsed but currently unused (default: 9090)
 
 ### Resilience Models (NEW)
 
@@ -72,19 +76,19 @@ Configures circuit breaker pattern to prevent cascading failures.
 **Key Attributes:**
 - `failure_threshold`: Failures before opening circuit (default: 5)
 - `recovery_timeout`: Time before attempting recovery (default: 60.0s)
-- `expected_exception`: Exception type to trigger breaker (default: "Exception")
+- `expected_exception`: Parsed exception name (default: "Exception"); currently unused
 
 **Purpose:** Prevents overwhelming failing services by temporarily stopping requests after a threshold of failures.
 
 #### `RetryConfig`
-Configures retry logic with exponential backoff and jitter.
+Configures retry logic with exponential backoff.
 
 **Key Attributes:**
-- `max_attempts`: Maximum retry attempts (default: 3)
+- `max_attempts`: Total attempts including the initial call (default: 3)
 - `min_wait`: Minimum wait time between retries (default: 1.0s)
 - `max_wait`: Maximum wait time between retries (default: 10.0s)
 - `exponential_base`: Backoff multiplier (default: 2.0)
-- `jitter`: Add randomization to wait times (default: True)
+- `jitter`: Select Tenacity `wait_exponential`; currently adds no randomness (default: True)
 
 **Purpose:** Handles transient failures gracefully with intelligent backoff strategies.
 
@@ -159,8 +163,8 @@ logging:
   level: "INFO"
 
 metrics:
-  enabled: true
-  port: 9090
+  enabled: true  # Parsed but currently unused
+  port: 9090     # Parsed but currently unused
 
 resilience:
   circuit_breaker:
@@ -172,7 +176,7 @@ resilience:
     min_wait: 0.5
     max_wait: 20.0
     exponential_base: 1.8
-    jitter: true
+    jitter: true  # Selects wait_exponential; no random jitter
 
 max_request_size: 1048576
 request_timeout: 30.0
@@ -220,7 +224,7 @@ resilience:
 
 ### Server Validation
 - `port` must be between 1 and 65535
-- `host` must be a valid address
+- `host` is accepted as a string without address validation
 
 ## Usage Patterns
 
@@ -342,7 +346,7 @@ providers:
 # - failure_threshold: 5
 # - recovery_timeout: 60.0
 # - max_attempts: 3
-# - exponential backoff with jitter
+# - exponential backoff without random jitter
 ```
 
 To customize resilience settings, add the `resilience` section to your configuration file.
