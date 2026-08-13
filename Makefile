@@ -1,4 +1,4 @@
-.PHONY: help dev dev-stop dev-logs test test-cov lint format clean health status
+.PHONY: help dev dev-stop dev-logs monitoring-up monitoring-down test test-cov lint format clean health status
 
 DOPPLER_CMD := $(shell if command -v doppler >/dev/null 2>&1 && doppler run -- true >/dev/null 2>&1; then printf 'doppler run --'; fi)
 REDIS_PASSWORD ?= local-dev-password
@@ -12,6 +12,8 @@ help:
 	@echo "  make dev        - Start all services (Redis, Prometheus, Grafana, Gateway)"
 	@echo "  make dev-stop   - Stop all services"
 	@echo "  make dev-logs   - Tail logs from all services"
+	@echo "  make monitoring-up   - Start Prometheus with Grafana Cloud remote write"
+	@echo "  make monitoring-down - Stop Grafana Cloud Prometheus"
 	@echo "  make status     - Show running containers"
 	@echo "  make health     - Check gateway health endpoint"
 	@echo ""
@@ -50,6 +52,17 @@ dev-stop:
 
 dev-logs:
 	$(DOPPLER_CMD) docker compose -f infra/docker-compose.yml logs -f
+
+monitoring-up:
+	@command -v doppler >/dev/null 2>&1 || { echo "Error: doppler is required for monitoring-up." >&2; exit 1; }
+	@doppler run --project sre-inference-gateway --config dev_personal -- true >/dev/null 2>&1 || { echo "Error: doppler run failed. Run 'doppler setup --project sre-inference-gateway --config dev_personal' and verify access." >&2; exit 1; }
+	@env -u REDIS_PASSWORD -u GRAFANA_ADMIN_PASSWORD doppler run --project sre-inference-gateway --config dev_personal -- python3 -c 'import json, os, pathlib; names=("GRAFANA_CLOUD_PROMETHEUS_URL", "GRAFANA_CLOUD_PROMETHEUS_USERNAME", "GRAFANA_CLOUD_PROMETHEUS_TOKEN", "REDIS_PASSWORD", "GRAFANA_ADMIN_PASSWORD"); missing=[name for name in names if not os.environ.get(name)]; missing and (_ for _ in ()).throw(SystemExit("Missing Doppler secrets: " + ", ".join(missing))); source=pathlib.Path("infra/prometheus.grafana-cloud.template.yml").read_text(); source=source.replace("__GRAFANA_CLOUD_PROMETHEUS_URL__", json.dumps(os.environ[names[0]])).replace("__GRAFANA_CLOUD_PROMETHEUS_USERNAME__", json.dumps(os.environ[names[1]])).replace("__GRAFANA_CLOUD_PROMETHEUS_TOKEN__", json.dumps(os.environ[names[2]])); target=pathlib.Path("infra/prometheus.local.yml"); descriptor=os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600); os.fchmod(descriptor, 0o600); file=os.fdopen(descriptor, "w"); file.write(source); file.close()'
+	@env -u REDIS_PASSWORD -u GRAFANA_ADMIN_PASSWORD doppler run --project sre-inference-gateway --config dev_personal -- docker compose -f infra/docker-compose.yml -f infra/docker-compose.grafana-cloud.yml up -d prometheus
+
+monitoring-down:
+	@command -v doppler >/dev/null 2>&1 || { echo "Error: doppler is required for monitoring-down." >&2; exit 1; }
+	@doppler run --project sre-inference-gateway --config dev_personal -- true >/dev/null 2>&1 || { echo "Error: doppler run failed. Run 'doppler setup --project sre-inference-gateway --config dev_personal' and verify access." >&2; exit 1; }
+	@env -u REDIS_PASSWORD -u GRAFANA_ADMIN_PASSWORD doppler run --project sre-inference-gateway --config dev_personal -- docker compose -f infra/docker-compose.yml -f infra/docker-compose.grafana-cloud.yml stop prometheus
 
 status:
 	@$(DOPPLER_CMD) docker compose -f infra/docker-compose.yml ps

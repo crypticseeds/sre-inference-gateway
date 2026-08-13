@@ -39,19 +39,38 @@ Compose service, use `gateway:8000` instead.
 
 1. Sign in at grafana.com and open the target stack.
 2. Open **Prometheus**, then **Details**, and copy the remote-write URL, instance ID, and an API token with metrics-publish permission.
-3. Copy `infra/prometheus.yml` to `infra/prometheus.local.yml`.
-4. Uncomment `remote_write` in the local file and replace the endpoint, username, and password placeholders. The local file is gitignored; never put real credentials in a tracked file.
-5. Start Prometheus with the local mount:
+3. Add the three Grafana Cloud secrets to Doppler project
+   `sre-inference-gateway`, config `dev_personal`. The two Compose secrets should
+   already be present:
+
+   - `GRAFANA_CLOUD_PROMETHEUS_URL`
+   - `GRAFANA_CLOUD_PROMETHEUS_USERNAME`
+   - `GRAFANA_CLOUD_PROMETHEUS_TOKEN`
+   - `REDIS_PASSWORD`
+   - `GRAFANA_ADMIN_PASSWORD`
+
+4. Configure Doppler once and start Prometheus:
 
 ```bash
-REDIS_PASSWORD=local-dev-password GRAFANA_ADMIN_PASSWORD=local-dev-password \
-  docker compose -f infra/docker-compose.yml \
-  -f infra/docker-compose.grafana-cloud.yml up -d prometheus
+doppler setup --project sre-inference-gateway --config dev_personal
+make monitoring-up
 ```
 
-Compose evaluates required variables for the complete base file even when only
-Prometheus starts. Replace these development defaults if the other services are
-already configured in your shell.
+`make monitoring-up` renders the ignored `infra/prometheus.local.yml` with mode
+`600` and starts Prometheus with `REDIS_PASSWORD` and
+`GRAFANA_ADMIN_PASSWORD` supplied by `doppler run`. Stop it with
+`make monitoring-down`. No secret values need to be exported or printed.
+
+<details>
+<summary>Manual fallback</summary>
+
+Copy `infra/prometheus.yml` to `infra/prometheus.local.yml`, uncomment
+`remote_write`, replace its endpoint, username, and password placeholders, and
+set mode `600`. Then run the two-file Docker Compose command shown by
+`make -n monitoring-up` with all required Compose variables supplied securely.
+The local file is gitignored; never put credentials in a tracked file.
+
+</details>
 
 Prometheus continues to retain local samples while forwarding them to Grafana
 Cloud. Check **Prometheus > Explore** in the stack and query `up` to confirm data
