@@ -22,7 +22,8 @@ wheels/
 MANIFEST
 
 # Virtual environments
-.env
+.env*
+!.env.example
 .venv
 env/
 venv/
@@ -64,8 +65,6 @@ profile.cov
 logs/
 
 # Secrets (should use Doppler instead)
-.env.local
-.env.production
 secrets/
 infra/prometheus.local.yml
 

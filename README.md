@@ -2,426 +2,236 @@
 
 [![CI](https://github.com/crypticseeds/sre-inference-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/crypticseeds/sre-inference-gateway/actions/workflows/ci.yml)
 
-OpenAI-compatible API gateway with provider abstraction, built with Python 3.13+ and FastAPI.
+An OpenAI-compatible, multi-provider LLM inference gateway built to demonstrate SRE patterns on AI workloads. It routes non-streaming and SSE chat completions across mock or real backends, fails over before response headers, sheds excess concurrency, and exposes provider-attempt metrics and cost counters. It exists to make the reliability, observability, and cost trade-offs of LLM serving concrete and testable.
 
-## Features
+## What It Does
 
-- **OpenAI-Compatible API**: Single `/v1/chat/completions` endpoint
-- **Provider Abstraction**: Support for multiple inference providers (OpenAI, vLLM)
-- **Weighted Routing**: Configurable load balancing between providers
-- **Deterministic Pinning**: Route requests to specific providers via headers
-- **Request Tracing**: End-to-end request ID propagation with OpenTelemetry
-- **Health Checks**: Operational readiness monitoring via gateway (no redundant Docker health checks)
-- **Observability**: Prometheus metrics and distributed tracing
-
-## Quick Start
-
-### Development
-
-1. **Install dependencies**:
-   ```bash
-   uv sync --extra dev
-   ```
-
-2. **Run tests**:
-   ```bash
-   make test
-   ```
-
-3. **Start development server**:
-   ```bash
-   make dev
-   ```
-
-4. **Stop services**:
-   ```bash
-   make dev-stop
-   ```
-
-5. **Clean up**:
-   ```bash
-   make clean
-   ```
-
-Run `make help` to see all available commands.
-
-### Docker
-
-1. **Build and run with Docker Compose**:
-   ```bash
-   docker-compose up --build
-   ```
-
-2. **Access services**:
-   - API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
-   - Metrics: http://localhost:9090/metrics
-   - Prometheus: http://localhost:9091
-   - Grafana: http://localhost:3000 (admin/admin)
-
-## API Usage
-
-### Basic Chat Completion
-
-```bash
-curl -X POST http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-3.5-turbo",
-    "messages": [
-      {"role": "user", "content": "Hello, world!"}
-    ]
-  }'
-```
-
-### Provider Routing
-
-```bash
-# Route to specific provider
-curl -X POST http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "X-Provider-Priority: mock_openai" \
-  -d '{
-    "model": "gpt-3.5-turbo",
-    "messages": [
-      {"role": "user", "content": "Hello from OpenAI!"}
-    ]
-  }'
-```
-
-### Request ID Tracking
-
-```bash
-# Custom request ID
-curl -X POST http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "X-Request-ID: my-custom-request-123" \
-  -d '{
-    "model": "gpt-3.5-turbo",
-    "messages": [
-      {"role": "user", "content": "Track this request"}
-    ]
-  }'
-```
+- **Byte-faithful SSE passthrough:** flushes each upstream transport chunk immediately without a forwarding buffer, gzip, or byte rewriting; preserves `[DONE]` and forwards `stream_options.include_usage`. Observability retains and parses only a bounded copy of the stream tail after forwarding.
+- **Circuit-breaker-aware routing:** combines normalized weighted selection with preferred provider pinning and sequential failover for eligible failures before response headers.
+- **Concurrency load shedding:** rejects excess global or per-provider work instead of queueing it, returning `503` with `Retry-After: 1`.
+- **Golden-signal metrics:** exports Prometheus traffic, latency, error, saturation, breaker, shed, stream first-byte, and inter-chunk measurements.
+- **Server-usage-only cost tracking:** records tokens and configured USD cost only when the provider reports valid usage; it never estimates tokens.
+- **Runtime failover drill:** env-gated admin controls fail and restore registered mock providers so breaker transitions and survivor routing can be observed locally.
+- **Doppler-first secrets:** real-provider and Grafana Cloud credentials are designed to run through Doppler, with `.env` available only as a local fallback.
+- **Zero-key local mode:** two enabled streaming mock providers support complete local requests, usage events, failover, and metrics without credentials.
+- **Configurable real adapters:** checked-in configurations cover OpenAI, OpenRouter, Kimi/Moonshot, and RunPod vLLM through OpenAI-compatible adapters, plus unauthenticated local vLLM.
+- **Tested integration surface:** the default suite has 187 tests; CI runs Python 3.13, Ruff, and pytest, with a conditional Go `llm-slo-bench` integration job when private benchmark access is available.
 
 ## Architecture
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Client        │───▶│  FastAPI Gateway │───▶│  Provider       │
-│                 │    │                  │    │  (OpenAI/vLLM)  │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │
-                              ▼
-                       ┌──────────────────┐
-                       │  Observability   │
-                       │  (Metrics/Traces)│
-                       └──────────────────┘
-```
+The gateway admits work before selecting a circuit-eligible provider. Streaming establishment uses the same resilience and failover path as JSON responses; after headers, bytes flow directly through `StreamingResponse` and cannot switch providers safely.
 
-## Configuration
-
-The gateway uses Pydantic models for comprehensive configuration management with full type safety and validation:
-
-### Configuration Models
-
-The `app.config.models` module provides the following configuration classes:
-
-- **`GatewayConfig`**: Main configuration container
-- **`ProviderConfig`**: Individual provider configuration (OpenAI, vLLM, mock)
-- **`ServerConfig`**: FastAPI server binding configuration
-- **`HealthConfig`**: Health check monitoring configuration
-- **`LoggingConfig`**: Application logging configuration
-- **`MetricsConfig`**: Prometheus metrics configuration
-- **`ResilienceConfig`**: Combined resilience patterns configuration
-- **`CircuitBreakerConfig`**: Circuit breaker pattern configuration
-- **`RetryConfig`**: Retry logic with exponential backoff configuration
-
-### Core Configuration
-- `DEBUG`: Enable debug mode (default: false)
-- `HOST`: Host to bind to (default: 0.0.0.0)
-- `PORT`: Port to bind to (default: 8000)
-- `LOG_LEVEL`: Logging level (default: INFO)
-- `PROVIDER_WEIGHTS`: JSON object with provider weights
-
-### Resilience Configuration
-The gateway includes built-in resilience patterns:
-
-- **Circuit Breaker**: Prevents cascading failures by temporarily stopping requests to failing services
-  - `failure_threshold`: Number of failures before opening circuit (default: 5)
-  - `recovery_timeout`: Time before attempting recovery (default: 60s)
-  - `expected_exception`: Exception type to trigger circuit breaker
-
-- **Retry Logic**: Handles transient failures with exponential backoff
-  - `max_attempts`: Maximum retry attempts (default: 3)
-  - `min_wait`/`max_wait`: Wait time bounds (default: 1.0s - 10.0s)
-  - `exponential_base`: Backoff multiplier (default: 2.0)
-  - `jitter`: Add randomization to prevent thundering herd (default: true)
-
-### Configuration Documentation
-- `docs/CONFIG_MODELS_API.md` - Complete configuration models API reference
-- `docs/RESILIENCE_CONFIG.md` - Detailed resilience configuration guide
-- `docs/CONFIG_MODELS_SUMMARY.md` - Configuration models overview and examples
-
-## Health Checks
-
-- **Health**: `GET /v1/health` - Basic service health
-- **Detailed Health**: `GET /v1/health/detailed` - Comprehensive health with provider status
-- **Readiness**: `GET /v1/ready` - Service readiness with provider availability
-- **Provider Health**: `GET /v1/health/providers` - All provider health status
-- **Single Provider**: `GET /v1/health/providers/{name}` - Specific provider health
-
-See `docs/HEALTH_API.md` for detailed health check API documentation.
-
-## Observability
-
-- **Metrics**: Prometheus metrics on port 9090
-- **Tracing**: OpenTelemetry distributed tracing
-- **Logging**: Structured JSON logging
-
-## Development
-
-### Project Structure
-
-```
-sre-inference-gateway/
-├── app/
-│   ├── main.py                    # FastAPI application entry point
-│   ├── api/
-│   │   ├── completions.py         # Chat completion endpoint
-│   │   ├── dependencies.py        # FastAPI dependency functions
-│   │   ├── health.py              # Health check endpoints
-│   │   └── routes.py              # API route definitions
-│   ├── config/
-│   │   ├── models.py              # Configuration data models (Pydantic)
-│   │   └── settings.py            # Settings and config management
-│   ├── models/
-│   │   ├── requests.py            # Request models
-│   │   └── responses.py           # Response models with enhanced token tracking
-│   ├── observability/
-│   │   ├── metrics.py             # Prometheus metrics
-│   │   └── tracing.py             # OpenTelemetry tracing
-│   ├── providers/
-│   │   ├── base.py                # Provider base class
-│   │   ├── factory.py             # Provider factory for creating instances
-│   │   ├── openai.py              # OpenAI provider implementation
-│   │   ├── vllm.py                # vLLM adapter implementation
-│   │   ├── mock.py                # Mock provider implementations
-│   │   └── registry.py            # Provider registry
-│   └── router/
-│       ├── router.py              # Request routing logic
-│       ├── circuit_breaker.py     # Circuit breaker implementation
-│       ├── retry.py               # Retry logic with exponential backoff
-│       └── resilience.py          # Combined resilience patterns
-├── infra/
-│   ├── docker-compose.yml         # Development environment
-│   └── docker-compose.prod.yml    # Production-like environment
-├── docs/
-│   ├── DESIGN.md                  # Architectural decisions
-│   ├── ARCHITECTURE.md            # System architecture
-│   ├── INCIDENT.md                # Simulated incident postmortem
-│   ├── API_DEPENDENCIES.md        # FastAPI dependencies guide
-│   ├── MODELS.md                  # Data models documentation
-│   ├── PROVIDERS.md               # Provider implementation guide
-│   ├── PROVIDER_FACTORY.md        # Provider factory documentation
-│   ├── OPENAI_ADAPTER_API.md      # OpenAI adapter API reference
-│   ├── OPENAI_PROVIDER_SUMMARY.md # OpenAI provider implementation summary
-│   ├── RESILIENCE_CONFIG.md       # Resilience configuration documentation
-│   ├── TEST_REAL_PROVIDERS.md     # Provider adapter test documentation
-│   ├── TEST_VLLM_PROVIDER.md      # vLLM provider test documentation
-│   ├── TEST_RESILIENCE.md         # Resilience patterns test documentation
-│   ├── ENVIRONMENT.md             # Environment configuration
-│   └── ROADMAP.md                 # Future enhancements
-├── tests/                         # Test suite
-│   ├── test_main.py
-│   ├── test_config.py
-│   ├── test_dependencies.py
-│   ├── test_gateway.py
-│   ├── test_health.py
-│   ├── test_providers.py
-│   ├── test_real_providers.py     # Provider adapter unit tests
-│   ├── test_resilience.py         # Resilience patterns unit tests
-│   ├── test_vllm_provider.py      # vLLM provider specific unit tests
-│   └── test_router.py
-├── config.yaml                    # Gateway configuration
-├── Dockerfile                     # Container image definition
-├── Makefile                       # Development commands
-└── pyproject.toml                 # Python dependencies (uv)
+```mermaid
+flowchart LR
+    C[Client] --> A[FastAPI]
+    A --> L{Admission}
+    L -- full --> S[503 + Retry-After]
+    L -- admitted --> R[Router]
+    R -->|weighted or pinned| X[CB + retry]
+    X --> P{Provider adapter}
+    P --> M[Mock providers]
+    P --> O[Real providers]
+    M --> J{Response mode}
+    O --> J
+    J -- JSON --> C
+    J -- SSE established --> T[StreamingResponse]
+    T -->|bytes unchanged| C
+    X -. pre-header 5xx .-> R
+    A -. request metrics .-> G[Prometheus]
+    X -. attempt metrics .-> G
+    T -. stream metrics .-> G
 ```
 
-### Key API Dependencies
+The local drill uses establishment failures, where HTTP status is still mutable, to demonstrate breaker-driven failover and recovery.
 
-The `app.api.dependencies` module provides FastAPI dependency functions:
-
-- `get_request_id()`: Extracts or generates unique request IDs for tracing
-- `get_provider_priority()`: Handles provider routing via `X-Provider-Priority` header
-- `get_router()`: Creates configured RequestRouter instances
-- `setup_request_context()`: Sets up OpenTelemetry tracing context
-
-See `docs/API_DEPENDENCIES.md` for detailed usage examples and integration patterns.
-
-### Provider Factory
-
-The `app.providers.factory` module provides centralized provider creation:
-
-- `ProviderFactory.create_provider()`: Creates provider instances from configuration
-- Supports OpenAI, vLLM, and Mock provider types
-- Handles API key management via environment variables
-- Validates configuration and provides clear error messages
-
-```python
-from app.config.models import ProviderConfig
-from app.providers.factory import ProviderFactory
-
-# Create OpenAI provider from configuration
-config = ProviderConfig(
-    name="openai-gpt4",
-    type="openai",
-    api_key_env="OPENAI_API_KEY",
-    timeout=30.0
-)
-
-provider = ProviderFactory.create_provider(config)
-response = await provider.chat_completion(request, "req-123")
+```mermaid
+flowchart LR
+    K[Kill mock] --> F[Establishment failures]
+    F --> O[Breaker opens]
+    O --> S[Survivor serves]
+    S --> R[Restore mock]
+    R --> W[Recovery timeout]
+    W --> H[Half-open probe]
+    H --> C[Breaker closes]
 ```
 
-See `docs/PROVIDER_FACTORY.md` for comprehensive documentation and usage examples.
+See [Architecture](docs/ARCHITECTURE.md) for exact lifecycle and metric semantics.
 
-#Reliable and observable multi-provider LLM inference, built with SRE and platform engineering principles.
+## Quickstart
 
-## Tech Stack
+These commands were run in this worktree in the order shown. The checked-in configuration enables only `mock_openai` and `mock_vllm`, so the core path needs no keys, Redis, or Docker.
 
-- **Python 3.13+** with uv for dependency management
-- **FastAPI** for HTTP API framework
-- **OpenTelemetry** for distributed tracing
-- **Prometheus** for metrics collection
-- **Redis** for quotas, rate limiting, and token usage tracking
-- **Docker** for containerization
+### 1. Install And Test
 
-Reliable and observable multi-provider LLM inference, built with SRE and platform engineering principles.
+```bash
+uv sync
+uv run pytest -q
+```
 
-## About this project
+Expected result: `187 passed, 5 deselected`.
 
-This project demonstrates how to operate AI inference **reliably, safely, and cost-consciously** in production-like environments.
+### 2. Start Zero-Key Mode
 
-The focus is **not model quality**.  
-Instead, it explores the operational challenges that most often cause real-world AI incidents:
+Run this in a terminal and leave it running for the following checks:
 
-- Provider outages
-- Latency spikes
-- Cost overruns
-- Uncontrolled retries
-- Poor observability
+```bash
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-The gateway exposes a **single OpenAI-compatible API**, while routing requests across multiple inference backends such as **OpenAI** and **local vLLM**. All reliability, policy, and cost controls are centralized in the gateway.
+### 3. Smoke Test
 
-⚠️ **Not production-ready** — this is a learning and portfolio project designed to showcase architecture, trade-offs, and SRE thinking.
+```bash
+curl -sS http://127.0.0.1:8000/health
+curl -sS http://127.0.0.1:8000/v1/health
+curl -sS http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'X-Provider-Priority: mock_openai' \
+  -d '{"model":"mock-model","messages":[{"role":"user","content":"Say hello briefly."}],"stream":false}'
+curl -sS -N http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'X-Provider-Priority: mock_openai' \
+  -d '{"model":"mock-model","messages":[{"role":"user","content":"Stream a short greeting with usage."}],"stream":true,"stream_options":{"include_usage":true}}'
+```
 
-## Key Features
+The health responses include `"status":"healthy"`. The JSON response contains `"Mock OpenAI response for: Say hello briefly."`. The stream contains multiple `data:` events, a final usage object with `"total_tokens":25`, and `data: [DONE]`.
 
-- **Single OpenAI-style API**
-  - Clients integrate once, regardless of backend provider
+### 4. Run The Failover Drill
 
-- **Multi-provider routing**
-  - OpenAI (external)
-  - vLLM (local or remote, OpenAI-compatible)
+Stop the previous process, then start the loopback-only drill server:
 
-- **Reliability & resilience**
-  - Weighted routing and failover
-  - Timeouts and retries
-  - Circuit breaking
-  - Backpressure and load shedding
-  - Chaos injection for failure testing
+```bash
+FAILOVER_DRILL_ADMIN=1 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-- **Cost control & quotas**
-  - API key–based access
-  - Redis-backed rate limits and token usage tracking
-  - Budget enforcement before inference execution
+Fail `mock_openai`, send two pinned requests to reach the checked-in breaker threshold, inspect OPEN state, restore it, wait for the recovery timeout, and send the half-open probe:
 
-- **Observability-first design**
-  - Structured logs with request IDs
-  - Prometheus metrics (latency, errors, usage)
-  - Distributed tracing with OpenTelemetry
+```bash
+curl -sS -X POST http://127.0.0.1:8000/admin/providers/mock_openai/fail
+curl -sS http://127.0.0.1:8000/v1/chat/completions -H 'Content-Type: application/json' -H 'X-Provider-Priority: mock_openai' -d '{"model":"mock-model","messages":[{"role":"user","content":"failure one"}]}'
+curl -sS http://127.0.0.1:8000/v1/chat/completions -H 'Content-Type: application/json' -H 'X-Provider-Priority: mock_openai' -d '{"model":"mock-model","messages":[{"role":"user","content":"failure two"}]}'
+curl -sS http://127.0.0.1:8000/health/circuit-breakers/mock_openai
+curl -sS -X POST http://127.0.0.1:8000/admin/providers/mock_openai/restore
+sleep 5
+curl -sS http://127.0.0.1:8000/v1/chat/completions -H 'Content-Type: application/json' -H 'X-Provider-Priority: mock_openai' -d '{"model":"mock-model","messages":[{"role":"user","content":"recovery probe"}]}'
+curl -sS http://127.0.0.1:8000/health/circuit-breakers/mock_openai
+```
 
-- **Minimal safety guardrails**
-  - Response length limits
-  - Banned-word filtering
-  - Demonstrates operational safety awareness without overreach
+The failed legs fall through to `mock_vllm`; the breaker reports `OPEN`, then the successful recovery probe returns it to `CLOSED`. The controls return 404 unless `FAILOVER_DRILL_ADMIN=1`. See the [full drill runbook](docs/failover-drill.md).
 
-- **Platform-ready**
-  - Containerized with Docker
-  - Kubernetes manifests (HPA, resource limits)
-  - Hot-reloadable configuration
+### 5. Inspect Metrics
 
-## Architecture Overview
+```bash
+curl -sS http://127.0.0.1:8000/metrics | grep gateway_
+```
 
-At a high level:
+This exposes request, failure, duration, stream, in-flight, shed, token, and cost series on the gateway's HTTP port.
 
-- Clients send requests to a **single public API**
-- The gateway enforces authentication, quotas, routing, and policy
-- Requests are routed to OpenAI or vLLM
-- Responses flow back through the gateway for accounting and observability
+### 6. Use Postman
 
-All reliability and control logic lives **inside the gateway**.  
-Providers remain simple execution engines.
+Import `postman_collection.json`. Its folders are **Health & status**, **Chat (mock, no keys)**, **Chat (real providers, pinned)**, **Failover drill**, and **Observability**.
 
-See:
-- `docs/ARCHITECTURE.md` – diagrams and request lifecycle
-- `docs/DESIGN.md` – goals, non-goals, and trade-offs
+### 7. Test Real Providers With Doppler
 
-## What This Project Demonstrates
+This path requires Doppler access and provider credentials:
 
-- SRE and platform engineering applied to AI workloads
-- Designing control planes for inference systems
-- Failure containment and blast-radius reduction
-- Cost-aware AI system design
-- Operational observability and incident analysis
+First set only the selected provider's `enabled` field to `true` in `config.yaml`; provider enablement does not hot-reload into the registry, so start a new process after the edit.
 
-## Non-goals
+```bash
+doppler setup --project sre-inference-gateway --config dev_personal
+doppler run -- uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+curl -sS http://127.0.0.1:8000/v1/chat/completions -H 'Content-Type: application/json' -H 'X-Provider-Priority: openrouter' -d '{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"Reply with one short sentence."}]}'
+```
 
-To keep scope realistic, this project intentionally does **not** implement:
+The pinned request requires a valid configured key. A missing or invalid credential can fail over to a mock and still return HTTP 200, so verify that the body is not a mock response. Follow [Manual testing](docs/manual-testing.md) for the guarded Postman procedure and provider-specific setup.
 
-- End-user accounts or OAuth
-- Fine-tuning or model training
-- Production-grade multi-tenancy
-- Persistent caching or data storage
+### 8. Start Monitoring
 
-These are discussed as future considerations in `docs/DESIGN.md`.
+This target requires Docker and Doppler access to the Grafana Cloud secrets:
 
-## Getting Started (Demo)
+```bash
+make monitoring-up
+```
 
-1. Run Redis (for quotas and rate limits)
-2. Start the inference gateway
-3. Start vLLM (optional local provider)
-4. Send requests to `/v1/chat/completions`
-5. Observe metrics and logs
+It renders an ignored mode-`600` Prometheus configuration and starts the remote-write overlay. See [Monitoring](docs/monitoring.md).
+
+### 9. Make Targets
+
+```bash
+make test
+make dev
+```
+
+`make test` runs the normal pytest selection verbosely. `make dev` requires Docker; it starts Redis, Prometheus, and Grafana, waits five seconds, then runs the gateway in the foreground on the host. It does not start vLLM. Use `make dev-stop` to stop that stack.
+
+## Benchmarking: llm-slo-bench
+
+Also check out [llm-slo-bench](https://github.com/crypticseeds/llm-slo-bench), the sibling Go project designed to benchmark this gateway as an OpenAI-compatible target. It measures semantic TTFT at the first non-empty content delta, chunk inter-token latency, SLO gates, and an explicit failure taxonomy. The projects are designed to be run together so gateway-side provider-attempt metrics can be compared with client-observed streaming behavior.
+
+### Benchmark Results
+
+Measured gateway-overhead numbers from the joint llm-slo-bench run will be published here.
+
+## Design Decisions And Limitations
+
+- **No mid-stream provider switchover:** splicing a second provider onto partial output creates ambiguous provenance, duplicate tokens, overlapping cost, and a synthetic benchmark result.
+- **Establishment-only breaker accounting:** returning a stream iterator currently records breaker success; a later truncation is metered separately but does not change breaker state.
+- **Shed, do not queue:** immediate `503` responses preserve overload visibility and tail latency instead of hiding saturation in an internal queue.
+- **Server usage only:** token and cost counters move only for valid provider-reported usage; missing data is marked unpriced rather than estimated.
+
+The rationale and accepted follow-up work are recorded in [Design decisions](docs/design-decisions.md). This is a portfolio and learning system, not a production-ready public gateway: it has no authentication, quota, per-client rate limit, persistent accounting store, or safe post-header failover.
+
+## Roadmap
+
+- Implement the approved mid-stream hardening: terminal in-band error events, sentinel-aware breaker accounting, and an upstream idle timeout.
+- Wire configuration reloads to rebuild the provider registry; YAML currently reparses without reliably applying provider changes.
+- Add Grafana alerting rules for latency and availability signals; current monitoring provides metrics and dashboards only.
+- Add an optional single-manifest Kubernetes demo deployment without presenting it as a production platform.
+- Polish request-ID correlation across response headers, logs, and trace views.
 
 ## Documentation
 
-- `docs/DESIGN.md` – architectural decisions and trade-offs
-- `docs/ARCHITECTURE.md` – request and deployment diagrams
-- `docs/INCIDENT.md` – simulated outage and postmortem
-- `docs/API_DEPENDENCIES.md` – FastAPI dependencies and request handling
-- `docs/MODELS.md` – Pydantic models and data structures
-- `docs/RESPONSE_MODELS.md` – response model documentation with enhanced token tracking
-- `docs/CONFIG_MODELS_API.md` – complete configuration models API reference
-- `docs/CONFIG_MODELS_SUMMARY.md` – configuration models overview and examples
-- `docs/PROVIDERS.md` – provider implementation guide and usage examples
-- `docs/PROVIDER_FACTORY.md` – provider factory documentation and patterns
-- `docs/OPENAI_ADAPTER_API.md` – OpenAI adapter API reference documentation
-- `docs/OPENAI_ADAPTER_SIGNATURES.md` – OpenAI adapter API signatures and quick reference
-- `docs/OPENAI_ADAPTER_EXPORTS.md` – OpenAI adapter module exports and integration patterns
-- `docs/OPENAI_ADAPTER_EXAMPLES.md` – OpenAI adapter comprehensive usage examples
-- `docs/OPENAI_PROVIDER_SUMMARY.md` – OpenAI provider implementation summary
-- `docs/TEST_REAL_PROVIDERS.md` – provider adapter test documentation
-- `docs/TEST_VLLM_PROVIDER.md` – vLLM provider test documentation
-- `docs/TEST_RESILIENCE.md` – resilience patterns test documentation
-- `docs/ENVIRONMENT.md` – environment configuration guide
-- `docs/RESILIENCE_CONFIG.md` – resilience patterns configuration guide
+| Document | Purpose |
+| --- | --- |
+| [API dependencies](docs/API_DEPENDENCIES.md) | Request IDs, provider preference, router injection, and tracing dependencies. |
+| [Architecture](docs/ARCHITECTURE.md) | Implemented request, routing, streaming, resilience, and metric semantics. |
+| [Configuration model API](docs/CONFIG_MODELS_API.md) | Detailed Pydantic configuration model reference. |
+| [Configuration model exports](docs/CONFIG_MODELS_EXPORTS.md) | Public configuration module exports and imports. |
+| [Configuration model signatures](docs/CONFIG_MODELS_SIGNATURES.md) | Constructor and method signatures for configuration models. |
+| [Configuration model summary](docs/CONFIG_MODELS_SUMMARY.md) | Overview and examples for gateway configuration models. |
+| [Cost tracking](docs/cost-tracking.md) | Server-usage-only token, pricing, and unpriced-request semantics. |
+| [Design](docs/DESIGN.md) | Original project goals, non-goals, and trade-offs. |
+| [Design decisions](docs/design-decisions.md) | Current limitations, rejected alternatives, and approved hardening. |
+| [Environment](docs/ENVIRONMENT.md) | YAML configuration and environment-variable behavior. |
+| [Failover drill](docs/failover-drill.md) | Reproducible mock-provider kill, failover, and recovery procedure. |
+| [Health API](docs/HEALTH_API.md) | Health, readiness, provider, and breaker endpoint reference. |
+| [Incident](docs/INCIDENT.md) | Sample simulated incident and follow-up analysis. |
+| [Load shedding](docs/load-shedding.md) | Immediate concurrency admission, saturation, and tuning. |
+| [Manual testing](docs/manual-testing.md) | Doppler, Postman, mock, and pinned real-provider workflow. |
+| [Models](docs/MODELS.md) | Request and core Pydantic data-model reference. |
+| [Monitoring](docs/monitoring.md) | Prometheus inventory, Grafana Cloud remote write, and dashboard import. |
+| [OpenAI adapter API](docs/OPENAI_ADAPTER_API.md) | Detailed OpenAI-compatible adapter API reference. |
+| [OpenAI adapter changelog](docs/OPENAI_ADAPTER_CHANGELOG.md) | Historical adapter implementation changes. |
+| [OpenAI adapter examples](docs/OPENAI_ADAPTER_EXAMPLES.md) | Adapter usage and integration examples. |
+| [OpenAI adapter exports](docs/OPENAI_ADAPTER_EXPORTS.md) | Adapter module exports and import patterns. |
+| [OpenAI adapter signatures](docs/OPENAI_ADAPTER_SIGNATURES.md) | Quick-reference adapter signatures. |
+| [OpenAI provider summary](docs/OPENAI_PROVIDER_SUMMARY.md) | Implemented OpenAI provider behavior and known limitations. |
+| [Operations](docs/operations.md) | Local startup, metrics, CI, and benchmark integration runbook. |
+| [Provider factory](docs/PROVIDER_FACTORY.md) | Provider construction architecture and usage. |
+| [Provider factory API](docs/PROVIDER_FACTORY_API_REFERENCE.md) | Detailed provider factory API reference. |
+| [Provider factory summary](docs/PROVIDER_FACTORY_SUMMARY.md) | Concise provider factory implementation summary. |
+| [Providers](docs/PROVIDERS.md) | Provider interface, registry, routing, and implementation guidance. |
+| [Real provider adapters](docs/REAL_PROVIDER_ADAPTERS.md) | OpenAI-compatible and vLLM adapter behavior. |
+| [Resilience configuration](docs/RESILIENCE_CONFIG.md) | Circuit-breaker and retry configuration reference. |
+| [Response models](docs/RESPONSE_MODELS.md) | Chat response and token-usage model reference. |
+| [Roadmap](docs/ROADMAP.md) | Historical implementation roadmap and remaining backlog items. |
+| [SSE streaming](docs/streaming.md) | Passthrough guarantees, mock streams, failure behavior, and verification. |
+| [Configuration tests](docs/TEST_CONFIG.md) | Configuration-manager test coverage. |
+| [Real-provider tests](docs/TEST_REAL_PROVIDERS.md) | Real-adapter unit-test scenarios. |
+| [Resilience tests](docs/TEST_RESILIENCE.md) | Circuit-breaker and retry test coverage. |
+| [vLLM provider tests](docs/TEST_VLLM_PROVIDER.md) | vLLM adapter test notes and examples. |
+| [vLLM CPU limitations](docs/VLLM_CPU_LIMITATIONS.md) | Constraints and troubleshooting for CPU-only vLLM. |
+| [vLLM Docker setup](docs/VLLM_DOCKER_SETUP.md) | Local Docker vLLM setup and configuration. |
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-## Author
-
-Femi - [GitHub](https://github.com/crypticseeds)
+MIT License - see [LICENSE](LICENSE) for details.
