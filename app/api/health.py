@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import get_router
-from app.config.settings import get_gateway_config
+from app.config.settings import get_gateway_config, get_settings
 from app.router.resilience import resilience_registry
 from app.router.router import RequestRouter
 
@@ -143,6 +143,8 @@ async def health_check() -> Dict:
     return {
         "status": "healthy",
         "service": "sre-inference-gateway",
+        "author": "Femi Akinlotan",
+        "version": get_settings().version,
         "timestamp": time.time(),
     }
 

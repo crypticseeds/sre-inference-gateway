@@ -34,6 +34,8 @@ def test_health_endpoint(client):
     data = response.json()
     assert data["status"] == "healthy"
     assert data["service"] == "sre-inference-gateway"
+    assert data["author"] == "Femi Akinlotan"
+    assert data["version"] == "0.1.0"
 
 
 def test_versioned_health_endpoint(client):
@@ -43,6 +45,8 @@ def test_versioned_health_endpoint(client):
     data = response.json()
     assert data["status"] == "healthy"
     assert data["service"] == "sre-inference-gateway"
+    assert data["author"] == "Femi Akinlotan"
+    assert data["version"] == "0.1.0"
 
 
 def test_metrics_endpoint(client):
