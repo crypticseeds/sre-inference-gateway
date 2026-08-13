@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'sre-inference-gateway'
+    static_configs:
+      # Host-run gateway (make dev). For a compose-run gateway use gateway:8000.
+      # Recent Colima and Docker Desktop resolve this; Colima fallback: 192.168.5.2:8000.
+      - targets: ['host.docker.internal:8000']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+remote_write:
+  - url: __GRAFANA_CLOUD_PROMETHEUS_URL__
+    basic_auth:
+      username: __GRAFANA_CLOUD_PROMETHEUS_USERNAME__
+      password: __GRAFANA_CLOUD_PROMETHEUS_TOKEN__

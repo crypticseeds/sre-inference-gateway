@@ -30,6 +30,36 @@ providers:
     health_check_url: null
     timeout: 30.0
     max_retries: 3
+
+  # flip enabled: true to test; revert after
+  - name: "openrouter"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://openrouter.ai/api/v1"
+    api_key_env: "OPENROUTER_API_KEY"
+    timeout: 60.0
+    max_retries: 1
+
+  # flip enabled: true to test; revert after
+  - name: "kimi"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://api.moonshot.ai/v1"  # Mainland endpoint: api.moonshot.cn
+    api_key_env: "MOONSHOT_API_KEY"
+    timeout: 60.0
+    max_retries: 1
+
+  # flip enabled: true to test; revert after
+  - name: "runpod"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://REPLACE_POD_ID-8000.proxy.runpod.net/v1"
+    api_key_env: "RUNPOD_VLLM_API_KEY"  # For a no-auth pod use type: vllm and api_key_env: null
+    timeout: 120.0
+    max_retries: 1
   
   - name: "mock_openai"
     type: "mock"
@@ -80,6 +110,15 @@ pricing:
   mock-model:
     input_per_1m: 0.15
     output_per_1m: 0.60
+  openai/gpt-4o-mini:
+    input_per_1m: 0.15
+    output_per_1m: 0.60
+  kimi-k2-0711-preview:  # Verify current price in the Moonshot console.
+    input_per_1m: 0.60
+    output_per_1m: 2.50
+  Qwen/Qwen2.5-7B-Instruct:  # Nominal pricing.
+    input_per_1m: 0.05
+    output_per_1m: 0.05
 
 # Request processing limits
 max_request_size: 1048576  # 1MB in bytes

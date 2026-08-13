@@ -20,6 +20,9 @@ Use the exact start, fail, restore, and breaker-observation commands in
 [failover-drill.md](failover-drill.md). The drill requires
 `FAILOVER_DRILL_ADMIN=1` and should bind only to loopback.
 
+For independent Postman testing of mock, real-provider, streaming, failover, and
+observability routes, see [manual-testing.md](manual-testing.md).
+
 ## Metrics
 
 Prometheus text exposition is available at both paths:
