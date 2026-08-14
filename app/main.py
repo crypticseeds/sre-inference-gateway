@@ -93,6 +93,9 @@ def create_app() -> FastAPI:
         served_by = getattr(request.state, "served_by", None)
         if served_by:
             response.headers["X-Served-By"] = served_by
+        failed_providers = getattr(request.state, "failed_providers", None)
+        if failed_providers:
+            response.headers["X-Failed-Providers"] = ",".join(failed_providers)
         return response
 
     # Root endpoint

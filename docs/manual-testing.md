@@ -28,6 +28,8 @@ selected provider's error is returned as-is; production clients should leave
 failover on. This makes upstream failures visible rather than allowing a mock to
 mask them, such as OpenRouter returning 401 for a placeholder key or Moonshot
 returning 429 for insufficient balance.
+Any response carrying `X-Failed-Providers` means degraded service: the named
+provider or providers failed and were skipped before the response was served.
 
 Run **Failover drill** only after setting `FAILOVER_DRILL_ADMIN=1`. This
 non-secret flag may be Doppler-managed or supplied as an inline prefix, for

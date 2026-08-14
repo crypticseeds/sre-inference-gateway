@@ -288,7 +288,7 @@
     },
     {
       "name": "Failover drill",
-      "description": "Requires FAILOVER_DRILL_ADMIN=1. These controls accept registered mock providers only.",
+      "description": "Requires FAILOVER_DRILL_ADMIN=1. These controls accept registered mock providers only. A completion response carrying X-Failed-Providers means degraded service because a provider failed and was skipped.",
       "item": [
         {
           "name": "Fail drill provider",
@@ -299,6 +299,21 @@
             "url": "{{base_url}}/admin/providers/{{drill_provider}}/fail"
           },
           "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]}}],
+          "response": []
+        },
+        {
+          "name": "Verify fallback disclosure",
+          "request": {
+            "description": "Run after Fail drill provider. The failed provider must be explicitly disclosed in the response headers.",
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-Provider-Priority", "value": "{{drill_provider}}"}
+            ],
+            "body": {"mode": "raw", "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"failover disclosure drill\"}],\n  \"stream\": true\n}"},
+            "url": "{{base_url}}/v1/chat/completions"
+          },
+          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Failed provider is disclosed', () => pm.expect(pm.response.headers.get('X-Failed-Providers')).to.include(pm.variables.get('drill_provider')));", "pm.test('Survivor is disclosed', () => pm.expect(pm.response.headers.get('X-Served-By')).to.be.a('string').and.not.empty);"]}}],
           "response": []
         },
         {

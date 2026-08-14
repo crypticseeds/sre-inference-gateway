@@ -53,6 +53,8 @@ to `mock_vllm`. After two failed requests the `mock_openai` circuit opens and
 routing skips it. Requests continue to return complete HTTP 200 SSE streams
 from `mock_vllm`; the response header `X-Served-By: mock_vllm` makes the survivor
 visible.
+`X-Failed-Providers: mock_openai` explicitly marks that response as degraded
+because a provider failed and was skipped.
 
 Restore the mock:
 
