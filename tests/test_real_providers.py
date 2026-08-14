@@ -300,3 +300,78 @@ class TestProviderFactory:
 
         with pytest.raises(ValueError, match="Unknown provider type"):
             ProviderFactory.create_provider(config)
+
+
+class TestSamplingParamPassthrough:
+    """Client-unset sampling params must be omitted from upstream payloads.
+
+    Regression for the Moonshot incident: the gateway used to inject schema
+    defaults (top_p=1.0 etc.) into upstream requests even when the client
+    never sent them; Moonshot kimi-k2.6 rejects any top_p other than 0.95.
+    """
+
+    @pytest.mark.asyncio
+    async def test_unset_sampling_params_omitted(self, mock_openai_response):
+        adapter = OpenAIAdapter(
+            name="test_openai",
+            config={},
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            timeout=30.0,
+        )
+        request = ChatCompletionRequest(
+            model="kimi-k2.6",
+            messages=[{"role": "user", "content": "hi"}],
+            max_completion_tokens=10,
+        )
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_openai_response
+
+        with patch.object(
+            adapter.client, "post", return_value=mock_response
+        ) as mock_post:
+            await adapter.chat_completion(request, "test-omit")
+
+        payload = mock_post.call_args.kwargs["json"]
+        for param in (
+            "temperature",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "max_tokens",
+        ):
+            assert param not in payload, f"{param} must not be injected"
+        assert payload["max_completion_tokens"] == 10
+
+        await adapter.close()
+
+    @pytest.mark.asyncio
+    async def test_client_set_sampling_params_forwarded(self, mock_openai_response):
+        adapter = OpenAIAdapter(
+            name="test_openai",
+            config={},
+            api_key="test-key",
+            base_url="https://api.openai.com/v1",
+            timeout=30.0,
+        )
+        request = ChatCompletionRequest(
+            model="kimi-k2.6",
+            messages=[{"role": "user", "content": "hi"}],
+            temperature=0.2,
+            top_p=0.95,
+        )
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = mock_openai_response
+
+        with patch.object(
+            adapter.client, "post", return_value=mock_response
+        ) as mock_post:
+            await adapter.chat_completion(request, "test-fwd")
+
+        payload = mock_post.call_args.kwargs["json"]
+        assert payload["temperature"] == 0.2
+        assert payload["top_p"] == 0.95
+
+        await adapter.close()

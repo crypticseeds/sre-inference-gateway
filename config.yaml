@@ -31,6 +31,15 @@ providers:
     timeout: 30.0
     max_retries: 3
 
+  - name: "glm"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://api.z.ai/api/paas/v4"  # Mainland endpoint: open.bigmodel.cn/api/paas/v4
+    api_key_env: "ZAI_API_KEY"
+    timeout: 60.0
+    max_retries: 1
+
   # flip enabled: true to test; revert after
   - name: "openrouter"
     type: "openai"
@@ -113,9 +122,12 @@ pricing:
   openai/gpt-4o-mini:
     input_per_1m: 0.15
     output_per_1m: 0.60
-  kimi-k2-0711-preview:  # Verify current price in the Moonshot console.
+  kimi-k2.6:  # Verify current price in the Moonshot console.
     input_per_1m: 0.60
     output_per_1m: 2.50
+  glm-4.7:  # Verify current price in the Z.ai console.
+    input_per_1m: 0.60
+    output_per_1m: 2.20
   Qwen/Qwen2.5-7B-Instruct:  # Nominal pricing.
     input_per_1m: 0.05
     output_per_1m: 0.05

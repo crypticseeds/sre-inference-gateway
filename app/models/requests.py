@@ -39,7 +39,7 @@ class ChatCompletionRequest(BaseModel):
     model: str = Field(..., description="Model to use for completion")
     messages: List[ChatMessage] = Field(..., description="List of chat messages")
     temperature: Optional[float] = Field(
-        1.0, ge=0.0, le=2.0, description="Sampling temperature"
+        None, ge=0.0, le=2.0, description="Sampling temperature"
     )
     max_tokens: Optional[int] = Field(
         None, gt=0, description="Maximum tokens to generate"
@@ -48,13 +48,13 @@ class ChatCompletionRequest(BaseModel):
         None, gt=0, description="Maximum completion tokens to generate"
     )
     top_p: Optional[float] = Field(
-        1.0, ge=0.0, le=1.0, description="Nucleus sampling parameter"
+        None, ge=0.0, le=1.0, description="Nucleus sampling parameter"
     )
     frequency_penalty: Optional[float] = Field(
-        0.0, ge=-2.0, le=2.0, description="Frequency penalty"
+        None, ge=-2.0, le=2.0, description="Frequency penalty"
     )
     presence_penalty: Optional[float] = Field(
-        0.0, ge=-2.0, le=2.0, description="Presence penalty"
+        None, ge=-2.0, le=2.0, description="Presence penalty"
     )
     stream: bool = Field(False, description="Whether to stream responses")
     stream_options: Optional[Dict[str, bool]] = Field(

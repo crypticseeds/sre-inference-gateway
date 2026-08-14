@@ -1,355 +1,685 @@
 {
-  "info": {
-    "_postman_id": "sre-inference-gateway-collection",
-    "name": "SRE Inference Gateway",
-    "description": "Independent gateway checks for mock and pinned real providers. Real-provider requests require the matching disabled provider to be enabled temporarily in config.yaml.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "item": [
+ "info": {
+  "_postman_id": "sre-inference-gateway-collection",
+  "name": "SRE Inference Gateway",
+  "description": "Independent gateway checks for mock and pinned real providers. Real-provider requests require the matching disabled provider to be enabled temporarily in config.yaml.",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "item": [
+  {
+   "name": "Health & status",
+   "item": [
     {
-      "name": "Health & status",
-      "item": [
-        {
-          "name": "Root health",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/health"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Versioned health",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/v1/health"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Provider health",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/health/providers"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Circuit breakers",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/health/circuit-breakers"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Provider circuit breaker",
-          "request": {
-            "description": "Run a chat request first so the provider circuit breaker has been initialized.",
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/health/circuit-breakers/{{drill_provider}}"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]
-              }
-            }
-          ],
-          "response": []
-        }
-      ]
+     "name": "Root health",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{base_url}}/health"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
     },
     {
-      "name": "Chat (mock, no keys)",
-      "item": [
-        {
-          "name": "Mock non-streaming",
-          "request": {
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "mock_openai"}
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Say hello briefly.\"}],\n  \"stream\": false\n}"
-            },
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Mock streaming",
-          "request": {
-            "description": "Postman renders the text/event-stream response progressively.",
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "mock_openai"}
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream a short greeting.\"}],\n  \"stream\": true\n}"
-            },
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
-          "name": "Mock streaming with usage",
-          "request": {
-            "description": "Postman renders the text/event-stream response progressively. The final SSE payload includes usage.",
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "mock_openai"}
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream a short greeting with usage.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"
-            },
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('SSE body contains usage', () => pm.expect(pm.response.text()).to.include('usage'));"
-                ]
-              }
-            }
-          ],
-          "response": []
-        }
-      ]
+     "name": "Versioned health",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{base_url}}/v1/health"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
     },
     {
-      "name": "Chat (real providers, pinned)",
-      "description": "Enable only the provider under test in config.yaml, restart the gateway, run its requests, then revert config.yaml.",
-      "item": [
-        {
-          "name": "OpenRouter non-streaming",
-          "request": {
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "openrouter"},
-              {"key": "X-No-Failover", "value": "1"}
-            ],
-            "body": {"mode": "raw", "raw": "{\n  \"model\": \"{{openrouter_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Reply with one short sentence.\"}],\n  \"stream\": false\n}"},
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Served by OpenRouter', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('openrouter'));", "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "]}}],
-          "response": []
-        },
-        {
-          "name": "OpenRouter streaming with usage",
-          "request": {
-            "description": "Postman renders the text/event-stream response progressively.",
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "openrouter"},
-              {"key": "X-No-Failover", "value": "1"}
-            ],
-            "body": {"mode": "raw", "raw": "{\n  \"model\": \"{{openrouter_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream one short sentence.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"},
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Served by OpenRouter', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('openrouter'));", "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "]}}],
-          "response": []
-        },
-        {
-          "name": "Kimi non-streaming",
-          "request": {
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "kimi"},
-              {"key": "X-No-Failover", "value": "1"}
-            ],
-            "body": {"mode": "raw", "raw": "{\n  \"model\": \"{{kimi_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Reply with one short sentence.\"}],\n  \"stream\": false\n}"},
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Served by Kimi', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('kimi'));", "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "]}}],
-          "response": []
-        },
-        {
-          "name": "Kimi streaming with usage",
-          "request": {
-            "description": "Postman renders the text/event-stream response progressively.",
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "kimi"},
-              {"key": "X-No-Failover", "value": "1"}
-            ],
-            "body": {"mode": "raw", "raw": "{\n  \"model\": \"{{kimi_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream one short sentence.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"},
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Served by Kimi', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('kimi'));", "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "]}}],
-          "response": []
-        },
-        {
-          "name": "RunPod non-streaming",
-          "request": {
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "runpod"},
-              {"key": "X-No-Failover", "value": "1"}
-            ],
-            "body": {"mode": "raw", "raw": "{\n  \"model\": \"{{runpod_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Reply with one short sentence.\"}],\n  \"stream\": false\n}"},
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Served by RunPod', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('runpod'));", "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "]}}],
-          "response": []
-        },
-        {
-          "name": "RunPod streaming with usage",
-          "request": {
-            "description": "Postman renders the text/event-stream response progressively.",
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "runpod"},
-              {"key": "X-No-Failover", "value": "1"}
-            ],
-            "body": {"mode": "raw", "raw": "{\n  \"model\": \"{{runpod_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream one short sentence.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"},
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Served by RunPod', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('runpod'));", "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "]}}],
-          "response": []
-        }
-      ]
+     "name": "Provider health",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{base_url}}/health/providers"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
     },
     {
-      "name": "Failover drill",
-      "description": "Requires FAILOVER_DRILL_ADMIN=1. These controls accept registered mock providers only. A completion response carrying X-Failed-Providers means degraded service because a provider failed and was skipped.",
-      "item": [
-        {
-          "name": "Fail drill provider",
-          "request": {
-            "description": "Requires FAILOVER_DRILL_ADMIN=1.",
-            "method": "POST",
-            "header": [],
-            "url": "{{base_url}}/admin/providers/{{drill_provider}}/fail"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]}}],
-          "response": []
-        },
-        {
-          "name": "Verify fallback disclosure",
-          "request": {
-            "description": "Run after Fail drill provider. The failed provider must be explicitly disclosed in the response headers.",
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"},
-              {"key": "X-Provider-Priority", "value": "{{drill_provider}}"}
-            ],
-            "body": {"mode": "raw", "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"failover disclosure drill\"}],\n  \"stream\": true\n}"},
-            "url": "{{base_url}}/v1/chat/completions"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));", "pm.test('Failed provider is disclosed', () => pm.expect(pm.response.headers.get('X-Failed-Providers')).to.include(pm.variables.get('drill_provider')));", "pm.test('Survivor is disclosed', () => pm.expect(pm.response.headers.get('X-Served-By')).to.be.a('string').and.not.empty);"]}}],
-          "response": []
-        },
-        {
-          "name": "Restore drill provider",
-          "request": {
-            "description": "Requires FAILOVER_DRILL_ADMIN=1.",
-            "method": "POST",
-            "header": [],
-            "url": "{{base_url}}/admin/providers/{{drill_provider}}/restore"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]}}],
-          "response": []
-        }
-      ]
+     "name": "Circuit breakers",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{base_url}}/health/circuit-breakers"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
     },
     {
-      "name": "Observability",
-      "item": [
-        {
-          "name": "Prometheus metrics",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/metrics"
-          },
-          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": ["pm.test('Status is 200', () => pm.response.to.have.status(200));"]}}],
-          "response": []
-        }
-      ]
+     "name": "Provider circuit breaker",
+     "request": {
+      "description": "Run a chat request first so the provider circuit breaker has been initialized.",
+      "method": "GET",
+      "header": [],
+      "url": "{{base_url}}/health/circuit-breakers/{{drill_provider}}"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
     }
-  ],
-  "variable": [
-    {"key": "base_url", "value": "http://127.0.0.1:8000", "type": "string"},
-    {"key": "openrouter_model", "value": "openai/gpt-4o-mini", "type": "string"},
-    {"key": "kimi_model", "value": "kimi-k2-0711-preview", "type": "string"},
-    {"key": "runpod_model", "value": "Qwen/Qwen2.5-7B-Instruct", "type": "string"},
-    {"key": "drill_provider", "value": "mock_openai", "type": "string"}
-  ]
+   ]
+  },
+  {
+   "name": "Chat (mock, no keys)",
+   "item": [
+    {
+     "name": "Mock non-streaming",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "mock_openai"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Say hello briefly.\"}],\n  \"stream\": false\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "Mock streaming",
+     "request": {
+      "description": "Postman renders the text/event-stream response progressively.",
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "mock_openai"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream a short greeting.\"}],\n  \"stream\": true\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "Mock streaming with usage",
+     "request": {
+      "description": "Postman renders the text/event-stream response progressively. The final SSE payload includes usage.",
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "mock_openai"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream a short greeting with usage.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('SSE body contains usage', () => pm.expect(pm.response.text()).to.include('usage'));"
+        ]
+       }
+      }
+     ],
+     "response": []
+    }
+   ]
+  },
+  {
+   "name": "Chat (real providers, pinned)",
+   "description": "Enable only the provider under test in config.yaml, restart the gateway, run its requests, then revert config.yaml.",
+   "item": [
+    {
+     "name": "OpenRouter non-streaming",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "openrouter"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{openrouter_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Reply with one short sentence.\"}],\n  \"stream\": false\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by OpenRouter', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('openrouter'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "OpenRouter streaming with usage",
+     "request": {
+      "description": "Postman renders the text/event-stream response progressively.",
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "openrouter"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{openrouter_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream one short sentence.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by OpenRouter', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('openrouter'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "Kimi non-streaming",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "kimi"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{kimi_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Reply with one short sentence.\"}],\n  \"stream\": false\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by Kimi', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('kimi'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "Kimi streaming with usage",
+     "request": {
+      "description": "Postman renders the text/event-stream response progressively.",
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "kimi"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{kimi_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream one short sentence.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by Kimi', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('kimi'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "RunPod non-streaming",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "runpod"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{runpod_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Reply with one short sentence.\"}],\n  \"stream\": false\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by RunPod', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('runpod'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "RunPod streaming with usage",
+     "request": {
+      "description": "Postman renders the text/event-stream response progressively.",
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "runpod"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{runpod_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream one short sentence.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by RunPod', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('runpod'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "GLM non-streaming",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "glm"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{glm_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Reply with one short sentence.\"}],\n  \"stream\": false\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by Kimi', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('glm'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "GLM streaming with usage",
+     "request": {
+      "description": "Postman renders the text/event-stream response progressively.",
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "glm"
+       },
+       {
+        "key": "X-No-Failover",
+        "value": "1"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"{{glm_model}}\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"Stream one short sentence.\"}],\n  \"stream\": true,\n  \"stream_options\": {\"include_usage\": true}\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Served by Kimi', () => pm.expect(pm.response.headers.get('X-Served-By')).to.eql('glm'));",
+         "pm.test('Response is not a mock fallback', () => pm.expect(pm.response.text()).not.to.include('Mock OpenAI response')); "
+        ]
+       }
+      }
+     ],
+     "response": []
+    }
+   ]
+  },
+  {
+   "name": "Failover drill",
+   "description": "Requires FAILOVER_DRILL_ADMIN=1. These controls accept registered mock providers only. A completion response carrying X-Failed-Providers means degraded service because a provider failed and was skipped.",
+   "item": [
+    {
+     "name": "Fail drill provider",
+     "request": {
+      "description": "Requires FAILOVER_DRILL_ADMIN=1.",
+      "method": "POST",
+      "header": [],
+      "url": "{{base_url}}/admin/providers/{{drill_provider}}/fail"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "Verify fallback disclosure",
+     "request": {
+      "description": "Run after Fail drill provider. The failed provider must be explicitly disclosed in the response headers.",
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Provider-Priority",
+        "value": "{{drill_provider}}"
+       }
+      ],
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"model\": \"mock-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"failover disclosure drill\"}],\n  \"stream\": true\n}"
+      },
+      "url": "{{base_url}}/v1/chat/completions"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+         "pm.test('Failed provider is disclosed', () => pm.expect(pm.response.headers.get('X-Failed-Providers')).to.include(pm.variables.get('drill_provider')));",
+         "pm.test('Survivor is disclosed', () => pm.expect(pm.response.headers.get('X-Served-By')).to.be.a('string').and.not.empty);"
+        ]
+       }
+      }
+     ],
+     "response": []
+    },
+    {
+     "name": "Restore drill provider",
+     "request": {
+      "description": "Requires FAILOVER_DRILL_ADMIN=1.",
+      "method": "POST",
+      "header": [],
+      "url": "{{base_url}}/admin/providers/{{drill_provider}}/restore"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
+    }
+   ]
+  },
+  {
+   "name": "Observability",
+   "item": [
+    {
+     "name": "Prometheus metrics",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{base_url}}/metrics"
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ],
+     "response": []
+    }
+   ]
+  }
+ ],
+ "variable": [
+  {
+   "key": "base_url",
+   "value": "http://127.0.0.1:8000",
+   "type": "string"
+  },
+  {
+   "key": "openrouter_model",
+   "value": "openai/gpt-4o-mini",
+   "type": "string"
+  },
+  {
+   "key": "kimi_model",
+   "value": "kimi-k2.6",
+   "type": "string"
+  },
+  {
+   "key": "runpod_model",
+   "value": "Qwen/Qwen2.5-7B-Instruct",
+   "type": "string"
+  },
+  {
+   "key": "drill_provider",
+   "value": "mock_openai",
+   "type": "string"
+  },
+  {
+   "key": "glm_model",
+   "value": "glm-4.7"
+  }
+ ]
 }

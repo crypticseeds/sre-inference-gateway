@@ -15,12 +15,12 @@ class ChatCompletionRequest(BaseModel):
 
     model: str
     messages: list[Dict[str, Any]]
-    temperature: Optional[float] = 1.0
+    temperature: Optional[float] = None
     max_tokens: Optional[int] = None
     max_completion_tokens: Optional[int] = None
-    top_p: Optional[float] = 1.0
-    frequency_penalty: Optional[float] = 0.0
-    presence_penalty: Optional[float] = 0.0
+    top_p: Optional[float] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
     stream: bool = False
     stream_options: Optional[Dict[str, bool]] = None
     user: Optional[str] = None
@@ -34,7 +34,9 @@ class ChatCompletionResponse(BaseModel):
     created: int
     model: str
     choices: list[Dict[str, Any]]
-    usage: Optional[Dict[str, int]] = None
+    # OpenAI-compatible usage: counts are ints, but *_tokens_details fields
+    # are nested objects (e.g. {"reasoning_tokens": 9} from Moonshot/OpenAI).
+    usage: Optional[Dict[str, Any]] = None
 
 
 class ProviderHealth(BaseModel):
