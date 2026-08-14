@@ -11,6 +11,8 @@ transport chunks are flushed immediately without application buffering or byte
 rewriting, preserving multi-line `data:` events and the final `data: [DONE]`
 sentinel. Streaming responses use `Content-Type: text/event-stream`, are not
 compressed, and include `X-Accel-Buffering: no` for compatible reverse proxies.
+`X-Served-By` identifies the provider whose stream was successfully established,
+including the survivor selected after pre-header failover.
 
 ## Mock streaming
 

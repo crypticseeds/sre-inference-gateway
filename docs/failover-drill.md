@@ -51,7 +51,10 @@ curl -sS -X POST http://127.0.0.1:8000/admin/providers/mock_openai/fail
 New requests that first select `mock_openai` fail over before response headers
 to `mock_vllm`. After two failed requests the `mock_openai` circuit opens and
 routing skips it. Requests continue to return complete HTTP 200 SSE streams
-from `mock_vllm`.
+from `mock_vllm`; the response header `X-Served-By: mock_vllm` makes the survivor
+visible.
+`X-Failed-Providers: mock_openai` explicitly marks that response as degraded
+because a provider failed and was skipped.
 
 Restore the mock:
 
@@ -92,6 +95,8 @@ The mock kill mode fails at stream establishment, so the gateway can fall
 through to the survivor before returning headers. With at least one healthy
 provider, the benchmark sees complete HTTP 200 streams, although requests that
 first hit the failed provider may have slightly higher time to first byte.
+Do not send `X-No-Failover` during the drill because the drill depends on this
+fallback behavior.
 
 For real providers, a failure before response headers can also fall through to
 another provider. A provider failure after SSE bytes have started cannot be

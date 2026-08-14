@@ -19,6 +19,18 @@ afterward:
 git checkout -- config.yaml
 ```
 
+## How to be certain the response is real
+
+Every successful completion response includes `X-Served-By` with the provider
+that actually served it. For verification and debugging, send
+`X-No-Failover: 1` (case-insensitive `true` is also accepted) so the first
+selected provider's error is returned as-is; production clients should leave
+failover on. This makes upstream failures visible rather than allowing a mock to
+mask them, such as OpenRouter returning 401 for a placeholder key or Moonshot
+returning 429 for insufficient balance.
+Any response carrying `X-Failed-Providers` means degraded service: the named
+provider or providers failed and were skipped before the response was served.
+
 Run **Failover drill** only after setting `FAILOVER_DRILL_ADMIN=1`. This
 non-secret flag may be Doppler-managed or supplied as an inline prefix, for
 example `FAILOVER_DRILL_ADMIN=1 doppler run -- uv run uvicorn ...`.

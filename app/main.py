@@ -85,11 +85,17 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def add_request_id_header(request: Request, call_next):
-        """Propagate the request ID used by the endpoint to the response."""
+        """Propagate request metadata used by the endpoint to the response."""
         response = await call_next(request)
         request_id = getattr(request.state, "request_id", None)
         if request_id:
             response.headers["X-Request-ID"] = request_id
+        served_by = getattr(request.state, "served_by", None)
+        if served_by:
+            response.headers["X-Served-By"] = served_by
+        failed_providers = getattr(request.state, "failed_providers", None)
+        if failed_providers:
+            response.headers["X-Failed-Providers"] = ",".join(failed_providers)
         return response
 
     # Root endpoint

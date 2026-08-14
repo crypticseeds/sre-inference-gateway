@@ -68,6 +68,7 @@ async def create_chat_completion(
         HTTPException: If no providers available or provider error
     """
     span = trace.get_current_span()
+    no_failover = request.headers.get("X-No-Failover", "").lower() in {"1", "true"}
     global_lease = await load_shedder.try_acquire_global()
     if global_lease is None:
         record_shed("global")
@@ -96,6 +97,7 @@ async def create_chat_completion(
         )
 
         attempted_providers = set()
+        failed_providers = []
         last_provider_error = None
 
         while provider := request_router.select_provider(
@@ -126,6 +128,13 @@ async def create_chat_completion(
                     stream = await provider.chat_completion_stream(
                         base_request, request_id
                     )
+                    headers = {
+                        "Cache-Control": "no-cache",
+                        "X-Accel-Buffering": "no",
+                        "X-Served-By": provider.name,
+                    }
+                    if failed_providers:
+                        headers["X-Failed-Providers"] = ",".join(failed_providers)
                     response = AdmissionStreamingResponse(
                         AdmissionStream(
                             instrument_stream(
@@ -140,10 +149,7 @@ async def create_chat_completion(
                             in_flight_lease,
                         ),
                         media_type="text/event-stream",
-                        headers={
-                            "Cache-Control": "no-cache",
-                            "X-Accel-Buffering": "no",
-                        },
+                        headers=headers,
                     )
                     global_lease = None
                     provider_lease = None
@@ -155,6 +161,9 @@ async def create_chat_completion(
                 record_request(provider.name, chat_request.model, False, 200)
                 record_request_duration(provider.name, False, started_at)
                 logger.info(f"Completed request {request_id} successfully")
+                request.state.served_by = provider.name
+                if failed_providers:
+                    request.state.failed_providers = failed_providers
                 return response
             except HTTPException as error:
                 record_request(
@@ -163,17 +172,16 @@ async def create_chat_completion(
                     chat_request.stream,
                     error.status_code,
                 )
-                record_request_duration(
-                    provider.name, chat_request.stream, started_at
-                )
+                record_request_duration(provider.name, chat_request.stream, started_at)
                 record_failure(
                     provider.name,
                     "client_4xx"
                     if 400 <= error.status_code < 500 and error.status_code != 429
                     else "establishment",
                 )
-                if error.status_code < 500:
+                if error.status_code < 500 or no_failover:
                     raise
+                failed_providers.append(provider.name)
                 last_provider_error = error
                 logger.warning(
                     "event=provider_failover request_id=%s failed_provider=%s "
@@ -183,10 +191,10 @@ async def create_chat_completion(
                     error.status_code,
                 )
             except Exception:
-                record_request(provider.name, chat_request.model, chat_request.stream, 500)
-                record_request_duration(
-                    provider.name, chat_request.stream, started_at
+                record_request(
+                    provider.name, chat_request.model, chat_request.stream, 500
                 )
+                record_request_duration(provider.name, chat_request.stream, started_at)
                 record_failure(provider.name, "establishment")
                 raise
             finally:
