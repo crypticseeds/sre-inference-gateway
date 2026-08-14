@@ -2,6 +2,13 @@
 
 This record separates current behavior from approved follow-up work.
 
+## Explicit failover opt-out
+
+Pre-header failover masks provider outages by design, which is useful for
+resilience but misleading during provider verification. `X-No-Failover: 1` (or
+case-insensitive `true`) exposes the selected provider's error while leaving
+production failover enabled.
+
 ## Mid-stream failure
 
 ### Current behavior

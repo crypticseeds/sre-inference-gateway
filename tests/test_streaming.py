@@ -67,6 +67,7 @@ def test_streaming_passthrough_fidelity_and_headers(mock_registry, client):
 
     assert response.status_code == 200
     assert response.headers["content-type"].split(";", 1)[0] == "text/event-stream"
+    assert response.headers["X-Served-By"] == "mock_openai"
     assert "content-encoding" not in response.headers
     assert response.content == upstream
     forwarded = provider.chat_completion_stream.await_args.args[0]

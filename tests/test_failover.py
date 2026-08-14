@@ -2,8 +2,10 @@
 
 import asyncio
 import json
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.config.models import CircuitBreakerConfig
@@ -39,11 +41,14 @@ def failover_client(monkeypatch):
     retry_registry._retry_handlers.clear()
 
 
-def stream_request(client: TestClient, provider: str):
+def stream_request(client: TestClient, provider: str, no_failover: str | None = None):
     """Send a pinned streaming request used by the failover drill."""
+    headers = {"X-Provider-Priority": provider}
+    if no_failover is not None:
+        headers["X-No-Failover"] = no_failover
     return client.post(
         "/v1/chat/completions",
-        headers={"X-Provider-Priority": provider},
+        headers=headers,
         json={
             "model": "mock-model",
             "messages": [{"role": "user", "content": "failover drill"}],
@@ -81,6 +86,8 @@ def test_config_enables_both_streaming_mocks_for_same_model(failover_client):
     openai = stream_request(failover_client, "mock_openai")
     vllm = stream_request(failover_client, "mock_vllm")
     assert openai.status_code == vllm.status_code == 200
+    assert openai.headers["X-Served-By"] == "mock_openai"
+    assert vllm.headers["X-Served-By"] == "mock_vllm"
     assert "Mock OpenAI response" in stream_content(openai)
     assert "Mock vLLM response" in stream_content(vllm)
 
@@ -93,6 +100,7 @@ def test_admin_kill_fails_one_mock_while_other_streams(failover_client):
     assert stream_request(failover_client, "mock_openai").status_code == 200
     survivor = stream_request(failover_client, "mock_vllm")
     assert survivor.status_code == 200
+    assert survivor.headers["X-Served-By"] == "mock_vllm"
     assert "Mock vLLM response" in stream_content(survivor)
 
 
@@ -126,6 +134,7 @@ def test_restore_recovers_through_half_open_probe(failover_client):
     for _ in range(2):
         response = stream_request(failover_client, "mock_openai")
         assert response.status_code == 200
+        assert response.headers["X-Served-By"] == "mock_vllm"
         assert "Mock vLLM response" in stream_content(response)
 
     assert failover_client.post("/admin/providers/mock_openai/restore").status_code == 200
@@ -139,6 +148,44 @@ def test_restore_recovers_through_half_open_probe(failover_client):
     assert recovered.status_code == 200
     assert "Mock OpenAI response" in stream_content(recovered)
     assert state["state"] == "CLOSED"
+
+
+@pytest.mark.parametrize("header_value", ["1", "TrUe"])
+def test_no_failover_returns_first_provider_error(failover_client, header_value):
+    """The verification opt-out returns the pinned provider's establishment error."""
+    assert failover_client.post("/admin/providers/mock_openai/fail").status_code == 200
+
+    response = stream_request(failover_client, "mock_openai", header_value)
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "Provider mock_openai failed after all retry attempts"
+    }
+    assert "X-Served-By" not in response.headers
+    assert "Mock vLLM response" not in response.text
+
+
+def test_no_failover_preserves_non_streaming_http_error(failover_client):
+    """A provider HTTP error is returned unchanged without calling the fallback."""
+    failed = provider_registry.get_provider("mock_openai")
+    survivor = provider_registry.get_provider("mock_vllm")
+    failed.chat_completion = AsyncMock(
+        side_effect=HTTPException(status_code=503, detail="upstream maintenance")
+    )
+    survivor.chat_completion = AsyncMock()
+
+    response = failover_client.post(
+        "/v1/chat/completions",
+        headers={"X-Provider-Priority": "mock_openai", "X-No-Failover": "1"},
+        json={
+            "model": "mock-model",
+            "messages": [{"role": "user", "content": "no failover"}],
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "upstream maintenance"}
+    survivor.chat_completion.assert_not_awaited()
 
 
 @pytest.mark.asyncio

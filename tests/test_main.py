@@ -124,6 +124,7 @@ def test_chat_completions_endpoint(mock_registry, client):
     assert data["object"] == "chat.completion"
     assert "choices" in data
     assert "usage" in data
+    assert response.headers["X-Served-By"] == "mock_openai"
 
 
 @patch("app.router.router.provider_registry")

@@ -68,6 +68,7 @@ async def create_chat_completion(
         HTTPException: If no providers available or provider error
     """
     span = trace.get_current_span()
+    no_failover = request.headers.get("X-No-Failover", "").lower() in {"1", "true"}
     global_lease = await load_shedder.try_acquire_global()
     if global_lease is None:
         record_shed("global")
@@ -143,6 +144,7 @@ async def create_chat_completion(
                         headers={
                             "Cache-Control": "no-cache",
                             "X-Accel-Buffering": "no",
+                            "X-Served-By": provider.name,
                         },
                     )
                     global_lease = None
@@ -155,6 +157,7 @@ async def create_chat_completion(
                 record_request(provider.name, chat_request.model, False, 200)
                 record_request_duration(provider.name, False, started_at)
                 logger.info(f"Completed request {request_id} successfully")
+                request.state.served_by = provider.name
                 return response
             except HTTPException as error:
                 record_request(
@@ -172,7 +175,7 @@ async def create_chat_completion(
                     if 400 <= error.status_code < 500 and error.status_code != 429
                     else "establishment",
                 )
-                if error.status_code < 500:
+                if error.status_code < 500 or no_failover:
                     raise
                 last_provider_error = error
                 logger.warning(
