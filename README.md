@@ -169,7 +169,20 @@ Also check out [llm-slo-bench](https://github.com/crypticseeds/llm-slo-bench), t
 
 ### Benchmark Results
 
-Measured gateway-overhead numbers from the joint llm-slo-bench run will be published here.
+Official joint run, 2026-08-16: llm-slo-bench `fe41627` against gateway `bf319e6`, localhost (macOS), mock-provider lane. The mock emits SSE chunks on a fixed 50 ms cadence with zero keys and zero network, so these numbers isolate gateway overhead rather than any model's inference speed.
+
+| Run | Load | Result | TTFT p50 / p99 | Chunk ITL p50 / p99 |
+| --- | --- | --- | --- | --- |
+| Ramp | 10s @ 5 rps, 20s @ 10 rps | 175/175 success, 0 errors, 0 drops | 112.4 / 135.9 ms | 50.9 / 54.9 ms |
+| Failover drill | 45s @ 8 rps, provider killed at t=12s | 180/180 success, **zero client-visible errors** | 114.6 / 140.4 ms | 51.0 / 61.2 ms |
+| Headroom | 30s @ 20 rps | 226/226 started succeeded; 74 dropped by the bench-side admission cap (`max_in_flight=4` in the bench config - not a gateway limit) | 110.3 / 144.6 ms | 50.9 / 59.3 ms |
+
+- SLO gates: p99 semantic TTFT <= 250 ms - **PASS** on every run (worst observed 144.6 ms).
+- Failover: the circuit breaker opened ~1.4 s after the kill and re-closed 13.7 s after the kill (1.8 s after the provider was restored); clients saw uninterrupted 200s served by the surviving provider throughout.
+- Highest sustained zero-drop stage: 10 rps. Chunk ITL p50 of ~51 ms against the mock's fixed 50 ms cadence puts per-chunk gateway overhead in the ~1 ms band at these rates.
+- Semantic TTFT is client-measured (first non-empty content delta) and includes the mock's synthetic first-chunk delays; it is an end-to-end streaming number through the gateway, not a model benchmark.
+
+Full methodology, raw summaries, and the circuit-breaker timeline are published in the llm-slo-bench repository.
 
 ## Design Decisions And Limitations
 
