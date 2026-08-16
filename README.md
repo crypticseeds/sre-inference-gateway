@@ -167,6 +167,8 @@ make dev
 
 Also check out [llm-slo-bench](https://github.com/crypticseeds/llm-slo-bench), the sibling Go project designed to benchmark this gateway as an OpenAI-compatible target. It measures semantic TTFT at the first non-empty content delta, chunk inter-token latency, SLO gates, and an explicit failure taxonomy. The projects are designed to be run together so gateway-side provider-attempt metrics can be compared with client-observed streaming behavior.
 
+CI runs the cross-language integration test - llm-slo-bench's Go probe against a live gateway - on every push and pull request when the repository secret `LLM_SLO_BENCH_TOKEN` is configured (a fine-grained GitHub PAT with read-only Contents access to the private `llm-slo-bench` repository, added under Settings -> Secrets and variables -> Actions). Without the secret, the integration job succeeds with an explicit skip notice; the Python lint/test job always runs. Setup details in [Operations](docs/operations.md).
+
 ### Benchmark Results
 
 Official joint run, 2026-08-16: llm-slo-bench `fe41627` against gateway `bf319e6`, localhost (macOS), mock-provider lane. The mock emits SSE chunks on a fixed 50 ms cadence with zero keys and zero network, so these numbers isolate gateway overhead rather than any model's inference speed.
