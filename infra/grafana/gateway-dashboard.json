@@ -67,7 +67,37 @@
     "defaults": {
      "unit": "reqps"
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "baseline (no failures/sheds)"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "dark-green"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "dash": [
+          4,
+          4
+         ],
+         "fill": "dash"
+        }
+       },
+       {
+        "id": "custom.lineWidth",
+        "value": 1
+       }
+      ]
+     }
+    ]
    },
    "gridPos": {
     "h": 8,
@@ -97,6 +127,11 @@
      "expr": "sum by (scope, provider) (rate(gateway_shed_requests_total[$__rate_interval]))",
      "legendFormat": "shed {{scope}} / {{provider}}",
      "refId": "B"
+    },
+    {
+     "refId": "Z",
+     "expr": "vector(0)",
+     "legendFormat": "baseline (no failures/sheds)"
     }
    ],
    "title": "Failure and Shed Rate",
