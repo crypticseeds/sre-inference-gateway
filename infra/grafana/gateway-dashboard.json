@@ -353,7 +353,7 @@
    },
    "gridPos": {
     "h": 8,
-    "w": 12,
+    "w": 8,
     "x": 0,
     "y": 24
    },
@@ -392,8 +392,8 @@
    },
    "gridPos": {
     "h": 8,
-    "w": 12,
-    "x": 12,
+    "w": 10,
+    "x": 14,
     "y": 24
    },
    "id": 9,
@@ -461,6 +461,57 @@
    ],
    "title": "Unpriced Request Rate",
    "type": "timeseries"
+  },
+  {
+   "id": 11,
+   "type": "stat",
+   "title": "Total Tokens (cumulative)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS_PROMETHEUS}"
+   },
+   "gridPos": {
+    "h": 8,
+    "w": 6,
+    "x": 8,
+    "y": 24
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "orientation": "auto",
+    "textMode": "value_and_name",
+    "colorMode": "value",
+    "graphMode": "area",
+    "justifyMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (type) (gateway_tokens_total)",
+     "legendFormat": "{{type}}"
+    },
+    {
+     "refId": "B",
+     "expr": "sum(gateway_tokens_total)",
+     "legendFormat": "total"
+    }
+   ]
   }
  ],
  "refresh": "10s",
