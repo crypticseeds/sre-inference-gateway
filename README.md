@@ -15,7 +15,7 @@ An OpenAI-compatible, multi-provider LLM inference gateway built to demonstrate 
 - **Doppler-first secrets:** real-provider and Grafana Cloud credentials are designed to run through Doppler, with `.env` available only as a local fallback.
 - **Zero-key local mode:** two enabled streaming mock providers support complete local requests, usage events, failover, and metrics without credentials.
 - **Configurable real adapters:** checked-in configurations cover OpenAI, OpenRouter, Kimi/Moonshot, and RunPod vLLM through OpenAI-compatible adapters, plus unauthenticated local vLLM.
-- **Tested integration surface:** the default suite has 187 tests; CI runs Python 3.13, Ruff, and pytest, with a conditional Go `llm-slo-bench` integration job when private benchmark access is available.
+- **Tested integration surface:** the default suite has 187 tests; CI runs Python 3.13, Ruff, and pytest, plus a cross-language Go `llm-slo-bench` integration job on every push and pull request.
 
 ## Architecture
 
@@ -167,7 +167,7 @@ make dev
 
 Also check out [llm-slo-bench](https://github.com/crypticseeds/llm-slo-bench), the sibling Go project designed to benchmark this gateway as an OpenAI-compatible target. It measures semantic TTFT at the first non-empty content delta, chunk inter-token latency, SLO gates, and an explicit failure taxonomy. The projects are designed to be run together so gateway-side provider-attempt metrics can be compared with client-observed streaming behavior.
 
-CI runs the cross-language integration test - llm-slo-bench's Go probe against a live gateway - on every push and pull request when the repository secret `LLM_SLO_BENCH_TOKEN` is configured (a fine-grained GitHub PAT with read-only Contents access to the private `llm-slo-bench` repository, added under Settings -> Secrets and variables -> Actions). Without the secret, the integration job succeeds with an explicit skip notice; the Python lint/test job always runs. Setup details in [Operations](docs/operations.md).
+CI runs the cross-language integration test - llm-slo-bench's Go probe against a live gateway - on every push and pull request. The benchmark is checked out directly from its public repository; no secrets are required. The Python lint/test job runs alongside it. Setup details in [Operations](docs/operations.md).
 
 ### Benchmark Results
 

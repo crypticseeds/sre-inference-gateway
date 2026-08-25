@@ -21,34 +21,22 @@ jobs:
       - run: uv run pytest -q
 
   integration:
-    name: Integration (requires private benchmark access)
+    name: Integration (Go probe vs live gateway)
     runs-on: ubuntu-latest
-    env:
-      HAS_BENCHMARK_ACCESS: ${{ secrets.LLM_SLO_BENCH_TOKEN != '' }}
     steps:
-      - name: Skip without benchmark access
-        if: env.HAS_BENCHMARK_ACCESS != 'true'
-        run: echo 'Integration skipped because LLM_SLO_BENCH_TOKEN is unavailable.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
-        if: env.HAS_BENCHMARK_ACCESS == 'true'
       - uses: astral-sh/setup-uv@v6
-        if: env.HAS_BENCHMARK_ACCESS == 'true'
         with:
           python-version: "3.13"
-      - if: env.HAS_BENCHMARK_ACCESS == 'true'
-        run: uv sync
+      - run: uv sync
       - uses: actions/setup-go@v5
-        if: env.HAS_BENCHMARK_ACCESS == 'true'
         with:
           go-version: "1.26.2"
       - uses: actions/checkout@v4
-        if: env.HAS_BENCHMARK_ACCESS == 'true'
         with:
           repository: crypticseeds/llm-slo-bench
           path: llm-slo-bench
-          token: ${{ secrets.LLM_SLO_BENCH_TOKEN }}
           persist-credentials: false
-      - if: env.HAS_BENCHMARK_ACCESS == 'true'
-        run: uv run pytest -q -m integration tests/test_streaming_probe.py
+      - run: uv run pytest -q -m integration tests/test_streaming_probe.py
         env:
           LLM_SLO_BENCH_DIR: ${{ github.workspace }}/llm-slo-bench

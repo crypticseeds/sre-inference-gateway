@@ -60,18 +60,8 @@ skips when Go or the benchmark checkout is unavailable.
 
 The Python job installs Python 3.13 dependencies, runs Ruff, and runs the normal
 pytest suite. Integration tests are excluded from normal pytest by marker. A
-second job checks out the private benchmark and runs the Go-probe test only when
-`LLM_SLO_BENCH_TOKEN` is available; otherwise it records a skip summary.
-
-To enable the integration job:
-
-1. Create a fine-grained GitHub PAT (Settings -> Developer settings ->
-   Personal access tokens -> Fine-grained tokens): resource owner
-   `crypticseeds`, repository access limited to `llm-slo-bench`, permissions
-   Contents: Read-only.
-2. Add it to this repository as an Actions secret named `LLM_SLO_BENCH_TOKEN`
-   (Settings -> Secrets and variables -> Actions -> New repository secret).
-
-The workflow passes the token only to the private checkout step with
-`persist-credentials: false`. Forked pull requests do not receive secrets and
-show the skip notice.
+second job checks out the public [llm-slo-bench](https://github.com/crypticseeds/llm-slo-bench)
+repository and runs the Go-probe integration test on every push and pull
+request. No secrets are required; the checkout uses `persist-credentials: false`.
+The previously documented `LLM_SLO_BENCH_TOKEN` secret is obsolete since the
+benchmark went public and can be deleted from repository settings.
