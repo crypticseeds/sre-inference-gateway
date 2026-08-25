@@ -205,47 +205,7 @@ The rationale and accepted follow-up work are recorded in [Design decisions](doc
 
 ## Documentation
 
-| Document | Purpose |
-| --- | --- |
-| [API dependencies](docs/API_DEPENDENCIES.md) | Request IDs, provider preference, router injection, and tracing dependencies. |
-| [Architecture](docs/ARCHITECTURE.md) | Implemented request, routing, streaming, resilience, and metric semantics. |
-| [Configuration model API](docs/CONFIG_MODELS_API.md) | Detailed Pydantic configuration model reference. |
-| [Configuration model exports](docs/CONFIG_MODELS_EXPORTS.md) | Public configuration module exports and imports. |
-| [Configuration model signatures](docs/CONFIG_MODELS_SIGNATURES.md) | Constructor and method signatures for configuration models. |
-| [Configuration model summary](docs/CONFIG_MODELS_SUMMARY.md) | Overview and examples for gateway configuration models. |
-| [Cost tracking](docs/cost-tracking.md) | Server-usage-only token, pricing, and unpriced-request semantics. |
-| [Design](docs/DESIGN.md) | Original project goals, non-goals, and trade-offs. |
-| [Design decisions](docs/design-decisions.md) | Current limitations, rejected alternatives, and approved hardening. |
-| [Environment](docs/ENVIRONMENT.md) | YAML configuration and environment-variable behavior. |
-| [Failover drill](docs/failover-drill.md) | Reproducible mock-provider kill, failover, and recovery procedure. |
-| [Health API](docs/HEALTH_API.md) | Health, readiness, provider, and breaker endpoint reference. |
-| [Incident](docs/INCIDENT.md) | Sample simulated incident and follow-up analysis. |
-| [Load shedding](docs/load-shedding.md) | Immediate concurrency admission, saturation, and tuning. |
-| [Manual testing](docs/manual-testing.md) | Doppler, Postman, mock, and pinned real-provider workflow. |
-| [Models](docs/MODELS.md) | Request and core Pydantic data-model reference. |
-| [Monitoring](docs/monitoring.md) | Prometheus inventory, Grafana Cloud remote write, and dashboard import. |
-| [OpenAI adapter API](docs/OPENAI_ADAPTER_API.md) | Detailed OpenAI-compatible adapter API reference. |
-| [OpenAI adapter changelog](docs/OPENAI_ADAPTER_CHANGELOG.md) | Historical adapter implementation changes. |
-| [OpenAI adapter examples](docs/OPENAI_ADAPTER_EXAMPLES.md) | Adapter usage and integration examples. |
-| [OpenAI adapter exports](docs/OPENAI_ADAPTER_EXPORTS.md) | Adapter module exports and import patterns. |
-| [OpenAI adapter signatures](docs/OPENAI_ADAPTER_SIGNATURES.md) | Quick-reference adapter signatures. |
-| [OpenAI provider summary](docs/OPENAI_PROVIDER_SUMMARY.md) | Implemented OpenAI provider behavior and known limitations. |
-| [Operations](docs/operations.md) | Local startup, metrics, CI, and benchmark integration runbook. |
-| [Provider factory](docs/PROVIDER_FACTORY.md) | Provider construction architecture and usage. |
-| [Provider factory API](docs/PROVIDER_FACTORY_API_REFERENCE.md) | Detailed provider factory API reference. |
-| [Provider factory summary](docs/PROVIDER_FACTORY_SUMMARY.md) | Concise provider factory implementation summary. |
-| [Providers](docs/PROVIDERS.md) | Provider interface, registry, routing, and implementation guidance. |
-| [Real provider adapters](docs/REAL_PROVIDER_ADAPTERS.md) | OpenAI-compatible and vLLM adapter behavior. |
-| [Resilience configuration](docs/RESILIENCE_CONFIG.md) | Circuit-breaker and retry configuration reference. |
-| [Response models](docs/RESPONSE_MODELS.md) | Chat response and token-usage model reference. |
-| [Roadmap](docs/ROADMAP.md) | Historical implementation roadmap and remaining backlog items. |
-| [SSE streaming](docs/streaming.md) | Passthrough guarantees, mock streams, failure behavior, and verification. |
-| [Configuration tests](docs/TEST_CONFIG.md) | Configuration-manager test coverage. |
-| [Real-provider tests](docs/TEST_REAL_PROVIDERS.md) | Real-adapter unit-test scenarios. |
-| [Resilience tests](docs/TEST_RESILIENCE.md) | Circuit-breaker and retry test coverage. |
-| [vLLM provider tests](docs/TEST_VLLM_PROVIDER.md) | vLLM adapter test notes and examples. |
-| [vLLM CPU limitations](docs/VLLM_CPU_LIMITATIONS.md) | Constraints and troubleshooting for CPU-only vLLM. |
-| [vLLM Docker setup](docs/VLLM_DOCKER_SETUP.md) | Local Docker vLLM setup and configuration. |
+Full documentation lives in [`docs/`](docs/). Start with [Architecture](docs/ARCHITECTURE.md), [Operations](docs/operations.md), [Manual testing](docs/manual-testing.md), [Monitoring](docs/monitoring.md), and [Design decisions](docs/design-decisions.md); the rest of the directory is detailed API and configuration reference.
 
 ## License
 
