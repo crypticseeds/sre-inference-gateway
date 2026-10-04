@@ -10,8 +10,10 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv sync --frozen --no-dev
+# Install dependencies only. The project itself is not installed: the app runs
+# from /app/app with `python -m app.main`, and building it as a package here
+# would need README.md and the source in this stage.
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Production stage
 FROM python:3.13-slim
@@ -28,10 +30,11 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy application code
 COPY app/ ./app/
 
-# Create non-root user
-RUN groupadd -r gateway && useradd -r -g gateway gateway
-RUN chown -R gateway:gateway /app
-USER gateway
+# Create non-root user with a fixed numeric UID/GID. Kubernetes runAsNonRoot
+# can only verify a numeric USER, and the Helm chart sets runAsUser to match.
+RUN groupadd -r -g 10001 gateway && useradd -r -u 10001 -g 10001 gateway
+RUN chown -R 10001:10001 /app
+USER 10001:10001
 
 # Expose ports
 EXPOSE 8000 9090
