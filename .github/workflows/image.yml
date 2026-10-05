@@ -17,15 +17,14 @@ jobs:
     name: Build and push to Docker Hub
     runs-on: ubuntu-latest
     env:
-      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - name: Check Docker Hub configuration
         id: config
         run: |
-          if [ -z "$DOCKERHUB_NAMESPACE" ] || [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
-            echo "::notice::Skipping image push: set the DOCKERHUB_NAMESPACE variable and the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets."
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::notice::Skipping image push: set the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets."
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=true" >> "$GITHUB_OUTPUT"
@@ -48,5 +47,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ vars.DOCKERHUB_NAMESPACE }}/sre-inference-gateway:${{ github.sha }}
-            ${{ vars.DOCKERHUB_NAMESPACE }}/sre-inference-gateway:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/sre-inference-gateway:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/sre-inference-gateway:latest
