@@ -39,6 +39,12 @@ USER 10001:10001
 # Expose ports
 EXPOSE 8000 9090
 
+# Keep probe and scrape traffic out of trace output. Each pattern is a regex
+# searched in the full request URL, so the `$` anchor covers both the root and
+# /v1 routes while /health/detailed and other subpaths stay traced. Override at
+# deploy time by setting the same variable.
+ENV OTEL_PYTHON_FASTAPI_EXCLUDED_URLS="/health$,/ready$,/metrics$"
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD /app/.venv/bin/python -c "import httpx; httpx.get('http://localhost:8000/v1/health').raise_for_status()"
