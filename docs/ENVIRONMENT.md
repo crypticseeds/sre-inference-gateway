@@ -10,6 +10,7 @@ weights, request limits, health settings, or metrics settings.
 | --- | --- |
 | `OPENAI_API_KEY` | Used when an enabled OpenAI provider names it in `api_key_env`. Other variable names can be configured there. |
 | `FAILOVER_DRILL_ADMIN` | Enables mock fail/restore routes only when exactly `1`. |
+| `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS` | Comma-separated regexes for request URLs that produce no trace spans. The image defaults to `/health$,/ready$,/metrics$`, which drops probe and scrape requests on both the root and `/v1` routes while subpaths such as `/v1/health/detailed` stay traced. Read by the OpenTelemetry FastAPI instrumentation at startup. |
 
 The vLLM and mock adapters do not require credentials in the checked-in
 configuration. Real providers are disabled by default.
