@@ -75,6 +75,32 @@ def test_streaming_passthrough_fidelity_and_headers(mock_registry, client):
     assert forwarded.stream_options == {"include_usage": True}
 
 
+@patch("app.router.router.provider_registry")
+def test_unset_message_fields_are_not_forwarded(mock_registry, client):
+    """Omit unset optional message fields: vLLM rejects ``"name": null``."""
+
+    async def chunks():
+        yield b"data: [DONE]\n\n"
+
+    provider = MagicMock()
+    provider.name = "vllm"
+    provider.chat_completion_stream = AsyncMock(return_value=chunks())
+    mock_registry.get_provider.return_value = provider
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "qwen3-8b",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": True,
+        },
+    )
+
+    assert response.status_code == 200
+    forwarded = provider.chat_completion_stream.await_args.args[0]
+    assert forwarded.messages == [{"role": "user", "content": "hello"}]
+
+
 @pytest.mark.asyncio
 async def test_mock_streaming_emits_content_usage_and_done():
     """The no-key mock emits multiple content events, optional usage, and DONE."""
