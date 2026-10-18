@@ -184,7 +184,22 @@ Official joint run, 2026-08-16: llm-slo-bench `fe41627` against gateway `bf319e6
 - Highest sustained zero-drop stage: 10 rps. Chunk ITL p50 of ~51 ms against the mock's fixed 50 ms cadence puts per-chunk gateway overhead in the ~1 ms band at these rates.
 - Semantic TTFT is client-measured (first non-empty content delta) and includes the mock's synthetic first-chunk delays; it is an end-to-end streaming number through the gateway, not a model benchmark.
 
-Full methodology, raw summaries, and the circuit-breaker timeline are published in the llm-slo-bench repository.
+Methodology and the circuit-breaker timeline: [docs/measurements/2026-08-16-mock-lane](docs/measurements/2026-08-16-mock-lane/README.md).
+
+### Real Backend: vLLM On Modal
+
+2026-10-18: the same llm-slo-bench ramp (0 -> 2 req/s, 300 requests) sent directly to vLLM 0.21.0 (Qwen3-8B, one A10 on Modal) and then through the gateway, both from the same Raspberry Pi. Both runs: 300/300 success, 0 errors, 0 drops.
+
+| Client-side | Direct | Through gateway |
+| --- | --- | --- |
+| Semantic TTFT p50 / p99 | 194.0 / 247.8 ms | 295.7 / 528.9 ms |
+| Chunk ITL p50 / p99 | 36.8 / 49.1 ms | 37.2 / 42.0 ms |
+
+- Streaming passthrough adds nothing measurable: inter-chunk latency and tokens/s are unchanged.
+- The gateway adds a flat ~100 ms to the first token. Its own `gateway_stream_first_byte_seconds` (299.5 ms mean) shows that time is spent on the upstream hop, not in gateway code (about 3 ms). Leading hypothesis: upstream connection setup; unconfirmed.
+- The run surfaced a bug (`"name": null` forwarded on every message, rejected by vLLM), fixed separately.
+
+Details, configs, and raw summaries: [docs/measurements/2026-10-18-vllm-modal](docs/measurements/2026-10-18-vllm-modal/README.md).
 
 ## Design Decisions And Limitations
 
@@ -202,6 +217,10 @@ The rationale and accepted follow-up work are recorded in [Design decisions](doc
 - Add Grafana alerting rules for latency and availability signals; current monitoring provides metrics and dashboards only.
 - Add an optional single-manifest Kubernetes demo deployment without presenting it as a production platform.
 - Polish request-ID correlation across response headers, logs, and trace views.
+- Explain the ~100 ms first-token cost on the upstream hop ([2026-10-18 run](docs/measurements/2026-10-18-vllm-modal/README.md)): count upstream TCP/TLS connects per request first, then try a longer `keepalive_expiry`, pool limits sized to concurrency, and HTTP/2 (`http2=True` needs the `h2` dependency). Rerun the same ramp to confirm.
+- Export an upstream connection-reuse signal (new connections vs reused) so connection churn is visible on the dashboard, not inferred.
+- Re-measure with the gateway in the backend's region, the production placement, where a handshake costs about 1 ms instead of internet round trips.
+- Run the failover drill against a real backend: mocks need a small non-zero weight, because zero-weight providers are dropped from routing entirely.
 
 ## Documentation
 
