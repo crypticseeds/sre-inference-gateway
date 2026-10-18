@@ -84,7 +84,9 @@ async def create_chat_completion(
 
         base_request = BaseRequest(
             model=chat_request.model,
-            messages=[msg.model_dump() for msg in chat_request.messages],
+            messages=[
+                msg.model_dump(exclude_none=True) for msg in chat_request.messages
+            ],
             temperature=chat_request.temperature,
             max_tokens=chat_request.max_tokens,
             max_completion_tokens=chat_request.max_completion_tokens,
