@@ -1,0 +1,154 @@
+# Gateway config for the 2026-10-18 real-vLLM run: checked-in config.yaml with
+# vllm enabled at weight 1.0 (Modal host redacted) and both mocks at weight 0.
+
+# SRE Inference Gateway Configuration
+# This file contains the main configuration for the gateway service
+
+version: "0.1.0"
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+
+# Provider configurations
+providers:
+  - name: "openai"
+    type: "openai"
+    weight: 0.5
+    enabled: false  # Enable only when OPENAI_API_KEY is configured
+    base_url: "https://api.openai.com/v1"
+    api_key_env: "OPENAI_API_KEY"  # Environment variable for API key
+    health_check_url: null
+    timeout: 30.0
+    max_retries: 3
+  
+  - name: "vllm"
+    type: "vllm"
+    weight: 1.0  # week 3 run: all traffic to vLLM on Modal
+    enabled: true
+    base_url: "https://MODAL_HOST/v1"
+    api_key_env: null  # vLLM doesn't require API key
+    health_check_url: null
+    timeout: 30.0
+    max_retries: 3
+
+  - name: "glm"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://api.z.ai/api/paas/v4"  # Mainland endpoint: open.bigmodel.cn/api/paas/v4
+    api_key_env: "ZAI_API_KEY"
+    timeout: 60.0
+    max_retries: 1
+
+  # flip enabled: true to test; revert after
+  - name: "openrouter"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://openrouter.ai/api/v1"
+    api_key_env: "OPENROUTER_API_KEY"
+    timeout: 60.0
+    max_retries: 1
+
+  # flip enabled: true to test; revert after
+  - name: "kimi"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://api.moonshot.ai/v1"  # Mainland endpoint: api.moonshot.cn
+    api_key_env: "MOONSHOT_API_KEY"
+    timeout: 60.0
+    max_retries: 1
+
+  # flip enabled: true to test; revert after
+  - name: "runpod"
+    type: "openai"
+    enabled: false
+    weight: 0.0
+    base_url: "https://REPLACE_POD_ID-8000.proxy.runpod.net/v1"
+    api_key_env: "RUNPOD_VLLM_API_KEY"  # For a no-auth pod use type: vllm and api_key_env: null
+    timeout: 120.0
+    max_retries: 1
+  
+  - name: "mock_openai"
+    type: "mock"
+    model: "mock-model"
+    weight: 0.0  # failover target only
+    enabled: true  # No API key required - allows a zero-key local round trip
+    health_check_url: null
+    timeout: 30.0
+    max_retries: 3
+    stream_chunk_delay: 0.05
+    stream_content_chunks: 3
+  
+  - name: "mock_vllm"
+    type: "mock"
+    model: "mock-model"
+    weight: 0.0  # failover target only
+    enabled: true
+    health_check_url: null
+    timeout: 30.0
+    max_retries: 3
+    stream_chunk_delay: 0.05
+    stream_content_chunks: 3
+
+# Health check configuration
+health:
+  check_interval: 30.0  # Health check interval in seconds
+  timeout: 5.0          # Health check timeout in seconds
+  retries: 3            # Number of retries for failed health checks
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 9090
+
+# Immediate concurrency admission. Defaults are intentionally above benchmark load.
+load_shedding:
+  enabled: true
+  global_max_in_flight: 200
+  per_provider_max_in_flight: 100
+
+# Per-model USD pricing. Cost is recorded only from provider-reported usage.
+pricing:
+  mock-model:
+    input_per_1m: 0.15
+    output_per_1m: 0.60
+  openai/gpt-4o-mini:
+    input_per_1m: 0.15
+    output_per_1m: 0.60
+  kimi-k2.6:  # Verify current price in the Moonshot console.
+    input_per_1m: 0.60
+    output_per_1m: 2.50
+  glm-4.7:  # Verify current price in the Z.ai console.
+    input_per_1m: 0.60
+    output_per_1m: 2.20
+  Qwen/Qwen2.5-7B-Instruct:  # Nominal pricing.
+    input_per_1m: 0.05
+    output_per_1m: 0.05
+
+# Request processing limits
+max_request_size: 1048576  # 1MB in bytes
+request_timeout: 35.0      # Request timeout in seconds (slightly larger than provider timeout to avoid races)
+
+# Resilience configuration
+resilience:
+  circuit_breaker:
+    failure_threshold: 2      # Number of failed requests before opening circuit
+    recovery_timeout: 5.0     # Time in seconds before attempting recovery
+    expected_exception: "Exception"  # Exception type to trigger circuit breaker
+  
+  retry:
+    max_attempts: 1           # Fail over promptly; providers may retry internally
+    min_wait: 1.0            # Minimum wait time between retries in seconds
+    max_wait: 10.0           # Maximum wait time between retries in seconds
+    exponential_base: 2.0    # Exponential backoff base multiplier
+    jitter: true             # Add random jitter to wait times
